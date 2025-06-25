@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Bar</title>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Pinecone Router -->
+    <script src="https://cdn.jsdelivr.net/npm/pinecone-router@7.0.3/dist/router.min.js"></script>
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+    <!-- Just for demo/development - Tailwind will be loaded from the local bundle in production -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Base styles */
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        /* Dialog and command bar styling */
+        .dialog {
+            width: 600px;
+            max-width: 95vw;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Breadcrumbs styling */
+        .crumbs {
+            display: flex;
+            padding: 8px 14px;
+            background-color: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: none;
+        }
+        
+        .crumbs::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: #6b7280;
+            text-decoration: none;
+        }
+        
+        .breadcrumb:hover {
+            color: #111827;
+        }
+
+        /* Search bar styling */
+        .searchbar {
+            width: 100%;
+            padding: 10px 14px 10px 36px;
+            border: none;
+            border-bottom: 1px solid #e5e7eb;
+            outline: none;
+            font-size: 14px;
+        }
+
+        /* Command list styling */
+        .command_wrapper {
+            max-height: 320px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+        }
+        
+        .command_wrapper::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .command_wrapper::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        
+        .command_wrapper::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        /* Command item styling */
+        .command {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+        
+        .command:hover, .command.active {
+            background-color: #f3f4f6;
+        }
+        
+        .info_wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .icon {
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background-color: #f3f4f6;
+        }
+        
+        .command_text {
+            font-size: 14px;
+            color: #1f2937;
+        }
+
+        /* Category headers */
+        .category_header {
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            background-color: #f9fafb;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Shortcuts styling */
+        .shortcuts {
+            display: flex;
+            gap: 4px;
+        }
+        
+        kbd {
+            display: inline-block;
+            padding: 0px 6px;
+            font-size: 12px;
+            line-height: 18px;
+            color: #4b5563;
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 3px;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        /* Footer styling */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 14px;
+            background-color: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div x-data="commandBar()" class="flex flex-col items-center justify-center min-h-screen">
+        <!-- Command Bar Main Container -->
+        <div class="dialog">
+            <!-- Breadcrumb Navigation -->
+            <div class="crumbs">
+                <a href="#" @click.prevent="$router.navigate('/')" class="breadcrumb">
+                    <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span>Home</span>
+                </a>
+                
+                <template x-if="$router.context.path !== '/'">
+                    <div class="flex items-center">
+                        <svg class="w-3 h-3 mx-1 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <g fill="none" stroke="none">
+                                <path d="M10 8.013l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                            </g>
+                        </svg>
+                        <span class="breadcrumb" x-text="breadcrumbTitle"></span>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- Search Input -->
+            <div class="flex items-center">
+                <svg class="w-4 h-4 text-gray-400 absolute ml-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input 
+                    type="text" 
+                    x-model="searchQuery" 
+                    @input="searchItems()"
+                    class="searchbar pl-10" 
+                    placeholder="Type a command or search..."
+                    autocomplete="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                >
+            </div>
+            
+            <!-- Routes Container -->
+            <div x-ref="resultsContainer" class="command_wrapper">
+                <!-- Template for Home Route -->
+                <template x-route="/" x-template>
+                    <div>
+                        <!-- Loading Indicator -->
+                        <template x-if="isLoading">
+                            <div class="flex justify-center items-center py-4">
+                                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span class="text-sm text-gray-500">Loading...</span>
+                            </div>
+                        </template>
+                        
+                        <template x-if="!isLoading && filteredRootItems.length === 0">
+                            <div class="py-3 px-4 text-sm text-gray-500">
+                                No matching commands found
+                            </div>
+                        </template>
+                        
+                        <!-- Root Categories and Items -->
+                        <template x-for="(category, categoryName) in groupedRootItems" :key="categoryName">
+                            <div>
+                                <!-- Category Heading -->
+                                <div class="category_header" x-text="formatCategoryName(categoryName)"></div>
+                                
+                                <!-- Category Items -->
+                                <template x-for="(item, index) in category" :key="item.id">
+                                    <div>
+                                        <div 
+                                            :id="item.id" 
+                                            @click="selectItem(item)" 
+                                            @mouseenter="activeItem = item"
+                                            :class="{ 'active': isActiveItem(item) }"
+                                            class="command"
+                                        >
+                                            <div class="info_wrapper">
+                                                <!-- Item Icon (if available) -->
+                                                <div class="icon" :style="item.color ? { backgroundColor: item.color } : {}">
+                                                    <template x-if="item.iconUrl">
+                                                        <img :src="item.iconUrl" class="w-4 h-4 object-contain" alt="">
+                                                    </template>
+                                                    <template x-if="!item.iconUrl">
+                                                        <span x-html="item.icon || ''"></span>
+                                                    </template>
+                                                </div>
+                                                
+                                                <!-- Item Title -->
+                                                <span x-text="item.title" class="command_text"></span>
+                                            </div>
+
+                                            <div class="flex items-center">
+                                                <!-- Keyboard Shortcut (if available) -->
+                                                <template x-if="item.shortcut">
+                                                    <div class="shortcuts">
+                                                        <kbd x-text="item.shortcut"></kbd>
+                                                    </div>
+                                                </template>
+
+                                                <!-- Chevron for items with children or fetchChildren -->
+                                                <template x-if="item.children || item.fetchChildren || item.route">
+                                                    <svg class="w-4 h-4 ml-2 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Template for Projects -->
+                <template x-route="/projects" x-template>
+                    <div>
+                        <template x-if="isLoading">
+                            <div class="flex justify-center items-center py-4">
+                                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span class="text-sm text-gray-500">Loading projects...</span>
+                            </div>
+                        </template>
+                        
+                        <template x-if="!isLoading">
+                            <div>
+                                <div class="category_header">Projects</div>
+                                <template x-for="(project, index) in projectItems" :key="project.id">
+                                    <div 
+                                        :id="project.id" 
+                                        @click="performAction(project.action, project)" 
+                                        @mouseenter="activeItem = project"
+                                        :class="{ 'active': isActiveItem(project) }"
+                                        class="command"
+                                    >
+                                        <div class="info_wrapper">
+                                            <div class="icon" :style="project.color ? { backgroundColor: project.color } : {}">
+                                                <span x-html="project.icon || ''"></span>
+                                            </div>
+                                            <span x-text="project.title" class="command_text"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Template for Bookmarks -->
+                <template x-route="/bookmarks" x-template>
+                    <div>
+                        <div class="category_header">Bookmarks</div>
+                        <template x-for="(bookmark, index) in bookmarkItems" :key="bookmark.id">
+                            <div 
+                                :id="bookmark.id" 
+                                @click="performAction(bookmark.action, bookmark)" 
+                                @mouseenter="activeItem = bookmark"
+                                :class="{ 'active': isActiveItem(bookmark) }"
+                                class="command"
+                            >
+                                <div class="info_wrapper">
+                                    <div class="icon" :style="bookmark.color ? { backgroundColor: bookmark.color } : {}">
+                                        <span x-html="bookmark.icon || ''"></span>
+                                    </div>
+                                    <span x-text="bookmark.title" class="command_text"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- 404 Route -->
+                <template x-route="notfound" x-template>
+                    <div class="py-3 px-4 text-sm text-gray-500">
+                        Page not found
+                    </div>
+                </template>
+            </div>
+
+            <!-- Footer with options -->
+            <div class="footer">
+                <div class="flex space-x-3">
+                    <span class="flex items-center">
+                        <kbd class="px-1.5 py-0.5 mr-1">↑</kbd>
+                        <kbd class="px-1.5 py-0.5">↓</kbd>
+                        <span class="ml-1">navigate</span>
+                    </span>
+
+                    <span class="flex items-center">
+                        <kbd class="px-1.5 py-0.5">↵</kbd>
+                        <span class="ml-1">select</span>
+                    </span>
+                </div>
+
+                <div class="flex items-center">
+                    <kbd class="px-1.5 py-0.5">Esc</kbd>
+                    <span class="ml-1" x-text="$router.context.path === '/' ? 'dismiss' : 'back'"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function commandBar() {
+            return {
+                searchQuery: '',
+                items: [
+                    // Actions category
+                    { 
+                        id: 'new-file', 
+                        title: 'New File', 
+                        icon: '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>', 
+                        category: 'actions', 
+                        action: 'new-file', 
+                        shortcut: '⌘N',
+                        color: '#e0f2fe'
+                    },
+                    { 
+                        id: 'open-file', 
+                        title: 'Open File', 
+                        icon: '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" /></svg>', 
+                        category: 'actions', 
+                        action: 'open-file', 
+                        shortcut: '⌘O',
+                        color: '#fef3c7'
+                    },
+                    { 
+                        id: 'remote-image', 
+                        title: 'Remote Image Example', 
+                        iconUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg', 
+                        category: 'actions', 
+                        action: 'remote-image-example',
+                        color: '#f1f5f9'
+                    },
+                    { 
+                        id: 'save-file', 
+                        title: 'Save File', 
+                        icon: '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>', 
+                        category: 'actions', 
+                        action: 'save-file', 
+                        shortcut: '⌘S',
+                        color: '#dcfce7'
+                    },
+                    
+                    // Navigate category
+                    { 
+                        id: 'go-home', 
+                        title: 'Go to Home', 
+                        icon: '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>', 
+                        category: 'navigate', 
+                        action: 'go-home',
+                        color: '#fee2e2'
+                    },
+                    { 
+                        id: 'go-projects', 
+                        title: 'Go to Projects', 
+                        icon: '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>', 
+                        category: 'navigate', 
+                        action: 'go-projects',
+                        shortcut: '⌘P',
+                        color: '#ddd6fe',
+                        route: '/projects'
+                    },
+                    {
+                        id: 'go-bookmarks',
+                        title: 'Go to Bookmarks',
+                        icon: '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>',
+                        category: 'navigate',
+                        action: 'go-bookmarks',
+                        color: '#fef3c7',
+                        route: '/bookmarks'
+                    },
+                    { 
+                        id: 'go-settings', 
+                        title: 'Go to Settings', 
+                        icon: '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>', 
+                        category: 'navigate', 
+                        action: 'go-settings', 
+                        shortcut: '⌘,',
+                        color: '#fce7f3'
+                    },
+                    
+                    // Tools category
+                    { 
+                        id: 'open-terminal', 
+                        title: 'Open Terminal', 
+                        icon: '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>', 
+                        category: 'tools', 
+                        action: 'open-terminal', 
+                        shortcut: '⌘T',
+                        color: '#e0f2fe'
+                    },
+                    { 
+                        id: 'open-browser', 
+                        title: 'Open Browser', 
+                        icon: '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>', 
+                        category: 'tools', 
+                        action: 'open-browser',
+                        color: '#fbcfe8'
+                    },
+                ],
+                
+                // Pre-defined project items
+                projectItems: [
+                    { id: 'project-1', title: 'Project Alpha', category: 'projects', action: 'open-project-1', color: '#ddd6fe' },
+                    { id: 'project-2', title: 'Project Beta', category: 'projects', action: 'open-project-2', color: '#ddd6fe' },
+                    { id: 'project-3', title: 'Project Gamma', category: 'projects', action: 'open-project-3', color: '#ddd6fe' },
+                    { id: 'project-4', title: 'Project Delta', category: 'projects', action: 'open-project-4', color: '#ddd6fe' },
+                    { id: 'project-5', title: 'Project Epsilon', category: 'projects', action: 'open-project-5', color: '#ddd6fe' },
+                ],
+                
+                // Pre-defined bookmark items
+                bookmarkItems: [
+                    { id: 'bookmark-1', title: 'GitHub', category: 'bookmarks', action: 'open-bookmark-1', color: '#fef3c7' },
+                    { id: 'bookmark-2', title: 'Documentation', category: 'bookmarks', action: 'open-bookmark-2', color: '#fef3c7' },
+                    { id: 'bookmark-3', title: 'Dashboard', category: 'bookmarks', action: 'open-bookmark-3', color: '#fef3c7' }
+                ],
+                
+                activeItem: null,
+                isLoading: false,
+                
+                get filteredRootItems() {
+                    if (!this.searchQuery) {
+                        return this.items;
+                    } else {
+                        const query = this.searchQuery.toLowerCase();
+                        return this.items.filter(item => 
+                            item.title.toLowerCase().includes(query)
+                        );
+                    }
+                },
+                
+                get groupedRootItems() {
+                    return this.filteredRootItems.reduce((groups, item) => {
+                        const category = item.category || 'uncategorized';
+                        if (!groups[category]) {
+                            groups[category] = [];
+                        }
+                        groups[category].push(item);
+                        return groups;
+                    }, {});
+                },
+                
+                get breadcrumbTitle() {
+                    const path = this.$router.context.path;
+                    if (path === '/projects') {
+                        return 'Projects';
+                    } else if (path === '/bookmarks') {
+                        return 'Bookmarks';
+                    } else if (path === '/settings') {
+                        return 'Settings';
+                    } else {
+                        return path.substring(1).charAt(0).toUpperCase() + path.substring(1).slice(1);
+                    }
+                },
+
+                init() {
+                    // Set first item as active by default
+                    if (this.items.length > 0) {
+                        this.activeItem = this.items[0];
+                    }
+
+                    // Setup keyboard navigation
+                    this.setupKeyboardNavigation();
+                },
+
+                // Format category name for display
+                formatCategoryName(name) {
+                    return name.charAt(0).toUpperCase() + name.slice(1);
+                },
+
+                // Check if item is the currently active item
+                isActiveItem(item) {
+                    return this.activeItem && this.activeItem.id === item.id;
+                },
+
+                // Search through items
+                searchItems() {
+                    const path = this.$router.context.path;
+                    
+                    // Reset active item based on current search results
+                    if (path === '/') {
+                        if (this.filteredRootItems.length > 0) {
+                            this.activeItem = this.filteredRootItems[0];
+                        } else {
+                            this.activeItem = null;
+                        }
+                    } else if (path === '/projects') {
+                        // Filter project items
+                        if (this.projectItems.length > 0) {
+                            this.activeItem = this.projectItems[0];
+                        }
+                    } else if (path === '/bookmarks') {
+                        // Filter bookmark items  
+                        if (this.bookmarkItems.length > 0) {
+                            this.activeItem = this.bookmarkItems[0];
+                        }
+                    }
+                },
+
+                // Select and perform action for an item
+                selectItem(item) {
+                    console.log('Selected item:', item);
+                    this.activeItem = item;
+                    
+                    // Check if the item has a route
+                    if (item.route) {
+                        this.$router.navigate(item.route);
+                    } else if (item.action) {
+                        // Perform the action
+                        this.performAction(item.action, item);
+                    }
+                },
+
+                // Simulate fetching children items from a remote source
+                fetchItemChildren(item) {
+                    console.log(`Would fetch from endpoint: ${item.endpoint || '/api/default'}`);
+                    
+                    // Simulate network delay
+                    return new Promise((resolve) => {
+                        setTimeout(() => {
+                            // Mock data based on the item id
+                            if (item.id === 'go-projects') {
+                                resolve(this.projectItems);
+                            } else {
+                                resolve([]);
+                            }
+                        }, 1500); // 1.5 seconds delay to simulate network latency
+                    });
+                },
+
+                // Perform the selected action
+                performAction(actionName, item) {
+                    // This is where we'll implement various actions
+                    console.log(`Performing action: ${actionName}`, item);
+                    
+                    // Handle specific actions
+                    if (actionName === 'go-projects') {
+                        this.$router.navigate('/projects');
+                    } else if (actionName === 'go-bookmarks') {
+                        this.$router.navigate('/bookmarks');
+                    } else if (actionName === 'go-home') {
+                        this.$router.navigate('/');
+                    }
+                },
+
+                // Setup keyboard navigation
+                setupKeyboardNavigation() {
+                    window.addEventListener('keydown', (event) => {
+                        // Handle arrow keys for navigation
+                        if (event.key === 'ArrowDown') {
+                            event.preventDefault();
+                            this.navigateNext();
+                        } else if (event.key === 'ArrowUp') {
+                            event.preventDefault();
+                            this.navigatePrevious();
+                        } else if (event.key === 'Enter') {
+                            event.preventDefault();
+                            if (this.activeItem) {
+                                this.selectItem(this.activeItem);
+                            }
+                        } else if (event.key === 'Escape') {
+                            event.preventDefault();
+                            // If not on home route, go back
+                            if (this.$router.context.path !== '/') {
+                                this.$router.navigate('/');
+                            } else {
+                                console.log('Would close command bar');
+                            }
+                        }
+                    });
+                },
+
+                // Navigate to next item
+                navigateNext() {
+                    let currentItems = [];
+                    const path = this.$router.context.path;
+                    
+                    if (path === '/') {
+                        currentItems = this.filteredRootItems;
+                    } else if (path === '/projects') {
+                        currentItems = this.projectItems;
+                    } else if (path === '/bookmarks') {
+                        currentItems = this.bookmarkItems;
+                    }
+                    
+                    if (!this.activeItem || currentItems.length === 0) return;
+                    
+                    const currentIndex = currentItems.findIndex(item => item.id === this.activeItem.id);
+                    const nextIndex = (currentIndex + 1) % currentItems.length;
+                    this.activeItem = currentItems[nextIndex];
+                    
+                    this.scrollActiveItemIntoView();
+                },
+
+                // Navigate to previous item
+                navigatePrevious() {
+                    let currentItems = [];
+                    const path = this.$router.context.path;
+                    
+                    if (path === '/') {
+                        currentItems = this.filteredRootItems;
+                    } else if (path === '/projects') {
+                        currentItems = this.projectItems;
+                    } else if (path === '/bookmarks') {
+                        currentItems = this.bookmarkItems;
+                    }
+                    
+                    if (!this.activeItem || currentItems.length === 0) return;
+                    
+                    const currentIndex = currentItems.findIndex(item => item.id === this.activeItem.id);
+                    const prevIndex = (currentIndex - 1 + currentItems.length) % currentItems.length;
+                    this.activeItem = currentItems[prevIndex];
+                    
+                    this.scrollActiveItemIntoView();
+                },
+
+                // Ensure the active item is visible in the scrollable container
+                scrollActiveItemIntoView() {
+                    if (!this.activeItem) return;
+                    
+                    const activeElement = document.getElementById(this.activeItem.id);
+                    if (activeElement) {
+                        activeElement.scrollIntoView({ block: 'nearest' });
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>

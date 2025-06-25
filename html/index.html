@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpine.js Router Demo</title>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/pinecone-router@7.0.3/dist/router.min.js"></script>
+    <style>
+        .breadcrumb {
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .breadcrumb a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .breadcrumb span:not(:last-child)::after {
+            content: "/";
+            margin-left: 8px;
+        }
+        .item-list {
+            list-style: none;
+            padding: 0;
+        }
+        .item-list li {
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .item-list li:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div x-data="router">
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+            <template x-for="(crumb, index) in breadcrumbs" :key="index">
+                <span>
+                    <a 
+                        x-text="crumb.text" 
+                        @click.prevent="$router.navigate(crumb.path)"
+                        href="#"
+                    ></a>
+                </span>
+            </template>
+        </div>
+
+        <!-- Routes -->
+        <template x-route="/" x-template>
+            <div>
+                <h2>Items List</h2>
+                <ul class="item-list">
+                    <template x-for="item in items" :key="item.id">
+                        <li @click="$router.navigate('/item/' + item.id)">
+                            <span x-text="item.name"></span>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+        </template>
+
+        <template x-route="/item/:id" x-template>
+            <div>
+                <h2>Item Details</h2>
+                <div x-show="selectedItem">
+                    <h3 x-text="selectedItem.name"></h3>
+                    <p x-text="selectedItem.description"></p>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+          console.log('INIT')
+            Alpine.data('router', () => ({
+                items: [
+                    { id: 1, name: 'Item 1', description: 'This is item 1 description' },
+                    { id: 2, name: 'Item 2', description: 'This is item 2 description' },
+                    { id: 3, name: 'Item 3', description: 'This is item 3 description' }
+                ],
+                get selectedItem() {
+                    console.log("PARAMS", this.$router.context.params.id);
+                    const id = parseInt(this.$router.context.params.id);
+                    console.log("ID", id);
+                    return this.items.find(item => item.id === id);
+                },
+                get breadcrumbs() {
+                    const crumbs = [
+                        { text: 'Home', path: '/' }
+                    ];
+
+                    console.log("PARAMS", this.$router.context.params);
+                    
+                    if (this.$router.context.path.startsWith('/item/')) {
+                        const item = this.selectedItem;
+                        if (item) {
+                            crumbs.push({
+                                text: item.name,
+                                path: `/item/${item.id}`
+                            });
+                        }
+                    }
+                    
+                    return crumbs;
+                }
+            }));
+        });
+    </script>
+</body>
+</html> 

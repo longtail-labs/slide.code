@@ -1,0 +1,14 @@
+{
+  "name": "@slide.code/preload",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "scripts": {
+    "build": "tsc && vite build",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "format": "npx prettier --check \"**/*.{js,mjs,cjs,ts,mts,cts,vue,json}\""
+  },
+  "dependencies": {
+    "@slide.code/types": "*"
+  }
+}

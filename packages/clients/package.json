@@ -1,0 +1,59 @@
+{
+  "name": "@slide.code/clients",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "require": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./trpc": {
+      "types": "./src/trpc/index.ts",
+      "import": "./src/trpc/index.ts",
+      "require": "./src/trpc/index.ts",
+      "default": "./src/trpc/index.ts"
+    },
+    "./drizzle": {
+      "types": "./src/drizzle/index.ts",
+      "import": "./src/drizzle/index.ts",
+      "require": "./src/drizzle/index.ts",
+      "default": "./src/drizzle/index.ts"
+    },
+    "./drizzle/operations": {
+      "types": "./src/drizzle/operations.ts",
+      "import": "./src/drizzle/operations.ts",
+      "require": "./src/drizzle/operations.ts",
+      "default": "./src/drizzle/operations.ts"
+    },
+    "./store": {
+      "types": "./src/store/index.ts",
+      "import": "./src/store/index.ts",
+      "require": "./src/store/index.ts",
+      "default": "./src/store/index.ts"
+    },
+    "./providers": {
+      "types": "./src/providers.ts",
+      "import": "./src/providers.ts",
+      "require": "./src/providers.ts",
+      "default": "./src/providers.ts"
+    }
+  },
+  "scripts": {
+    "lint": "eslint --fix",
+    "watch": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/rpc": "^0.63.0",
+    "@slide.code/schema": "*",
+    "@tanstack/query-sync-storage-persister": "^5.81.2",
+    "@tanstack/react-query": "^5.81.2",
+    "@tanstack/react-query-persist-client": "^5.81.2",
+    "lz-string": "^1.5.0",
+    "zustand": "^5.0.5"
+  }
+}
