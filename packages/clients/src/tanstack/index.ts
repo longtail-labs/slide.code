@@ -69,10 +69,17 @@ declare module '@tanstack/react-query' {
 
 // Set up the invalidateQueriesRemote method using PubSub
 QueryClient.prototype.invalidateQueriesRemote = async function (queryKey: any) {
+  console.log('[TANSTACK-QUERY] 📤 Local invalidation + remote broadcast for queryKey:', queryKey)
+
+  // First invalidate locally
   this.invalidateQueries({ queryKey })
-  // Send invalidation message through PubSub
+  console.log('[TANSTACK-QUERY] ✅ Local invalidation completed')
+
+  // Send invalidation message through PubSub to other processes
   const pubsub = PubsubClient.getInstance()
+  console.log('[TANSTACK-QUERY] 📡 Broadcasting invalidation via PubSub')
   await pubsub.publish(createInvalidateQuery(queryKey))
+  console.log('[TANSTACK-QUERY] ✅ Remote invalidation broadcast completed')
 }
 
 // Track if listener is already set up to avoid duplicate subscriptions
@@ -80,23 +87,42 @@ let isQueryInvalidationListenerSetup = false
 
 // Set up listener for query invalidations
 export const setupQueryInvalidationsListener = () => {
-  if (isQueryInvalidationListenerSetup) return
+  if (isQueryInvalidationListenerSetup) {
+    console.log('[TANSTACK-QUERY] ⚠️ Query invalidation listener already setup, skipping')
+    return
+  }
 
+  console.log('[TANSTACK-QUERY] 📺 Setting up query invalidation listener')
   const pubsub = PubsubClient.getInstance()
 
   pubsub.subscribe('InvalidateQuery', {
     onData: (event: InvalidateQueryMessage) => {
+      console.log('[TANSTACK-QUERY] 📥 Received remote query invalidation event:', event)
+
       if (event && event.queryKey) {
+        console.log(
+          '[TANSTACK-QUERY] 🔄 Processing remote invalidation for queryKey:',
+          event.queryKey
+        )
         queryClient.invalidateQueries({ queryKey: event.queryKey })
+        console.log('[TANSTACK-QUERY] ✅ Remote query invalidation completed for:', event.queryKey)
+      } else {
+        console.warn(
+          '[TANSTACK-QUERY] ⚠️ Received invalid query invalidation event (missing queryKey):',
+          event
+        )
       }
     },
     onError: (error: unknown) => {
-      console.error('ERROR IN QUERY INVALIDATION SUBSCRIPTION:', error)
+      console.error('[TANSTACK-QUERY] ❌ ERROR IN QUERY INVALIDATION SUBSCRIPTION:', error)
     }
   })
 
   isQueryInvalidationListenerSetup = true
+  console.log('[TANSTACK-QUERY] ✅ Query invalidation listener setup completed')
 }
 
 // Initialize the listener
+console.log('[TANSTACK-QUERY] 🚀 Initializing query invalidation system')
 setupQueryInvalidationsListener()
+console.log('[TANSTACK-QUERY] ✅ Query invalidation system initialized')

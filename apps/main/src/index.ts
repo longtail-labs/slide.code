@@ -10,14 +10,12 @@ import {
   ensureSingleInstance,
   SlideRuntime,
   UpdateRef,
-  APIService,
   config,
   MenuService,
   PubSubClient,
   ElectronEventService,
   PostHogService,
   SentryService,
-  SubscriptionService,
   registerSSRProtocols,
   GlobalShortcutService,
   registerDeepLinkingProtocol,
@@ -49,8 +47,6 @@ const program = Effect.gen(function* () {
     const electronEventService = yield* ElectronEventService // Get the electron event service
     const posthog = yield* PostHogService // Get the PostHog service
     const sentry = yield* SentryService
-    const subscription = yield* SubscriptionService
-    const api = yield* APIService
     // const globalShortcutService = yield* GlobalShortcutService
     yield* Effect.logInfo('Initializing ElectronEventService')
     yield* electronEventService.initialize

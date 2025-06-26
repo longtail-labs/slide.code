@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useRpcClient } from './impl.js'
 import { Effect } from 'effect'
 import type * as RpcClient from '@effect/rpc/RpcClient'
@@ -19,8 +19,12 @@ interface RpcContextType {
 // Create the context with a null default value
 const RpcContext = createContext<RpcContextType | null>(null)
 
-// Provider component
-export const RpcProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// Provider component with proper React 19 typing
+interface RpcProviderProps {
+  children: ReactNode
+}
+
+export const RpcProvider = ({ children }: RpcProviderProps): React.JSX.Element => {
   const rpcClient = useRpcClient()
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(true)
@@ -64,7 +68,7 @@ export const RpcProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     connectionError
   }
 
-  return <RpcContext.Provider value={contextValue}>{children}</RpcContext.Provider>
+  return React.createElement(RpcContext.Provider, { value: contextValue }, children)
 }
 
 // Custom hook to use the RPC context

@@ -4,6 +4,18 @@ import log from 'electron-log'
 import { listenTo } from '../utils/listenTo.js'
 import { createRequire } from 'node:module'
 import { ClaudeCodeService } from '../services/claude-code.service.js'
+import { PubSubClient } from '../services/pubsub.service.js'
+import { markAppReady, markAppError, AppReadyRefLive } from '../refs/ipc/app-ready.ref.js'
+import {
+  createSetWindowTitle,
+  createGetAppInfo,
+  createShowUpdateDialog,
+  createInvalidateQuery
+} from '@slide.code/schema/messages'
+import { SlideRpcs } from '../rpc/requests.js'
+import { RpcClient } from '@effect/rpc/RpcClient'
+import { IPCRefService } from '../services/ipc-ref.service.js'
+import { SlideRuntime } from '../index.js'
 
 const require = createRequire(import.meta.url)
 const resolve = require.resolve
@@ -11,14 +23,16 @@ const resolve = require.resolve
 /**
  * Combined flow that handles app launch and task work
  * Uses route navigation instead of separate windows
+ * Tests all communication systems: RPC, PubSub, and IPCRef
  */
 export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message) =>
   Effect.gen(function* () {
-    yield* Effect.logInfo('Starting AppLaunchedFlow - Creating BaseWindow', message._tag)
-    log.info('[APP-FLOW] Starting AppLaunchedFlow - Creating BaseWindow')
+    yield* Effect.logInfo('🚀 Starting AppLaunchedFlow - Creating BaseWindow', message._tag)
+    log.info('[APP-FLOW] 🚀 Starting AppLaunchedFlow - Creating BaseWindow')
 
-    // Get Claude Code service for additional testing
+    // Get services for testing
     const claudeCodeService = yield* ClaudeCodeService
+    const pubsub = yield* PubSubClient
 
     // Test Claude Code service configuration and detect executable
     yield* Effect.logInfo('🤖 Testing Claude Code service configuration')
@@ -80,15 +94,30 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
 
       // Load the app HTML file using the WebContentsView
       yield* Effect.promise(() => webContentsView.webContents.loadFile(resolve('@slide.code/app')))
-      // yield* Effect.promise(() => webContentsView.webContents.loadURL('https://google.com'))
 
       webContentsView.webContents.openDevTools()
 
+      // Sleep briefly to ensure window is ready
+      yield* Effect.sleep(Duration.millis(5000))
+      console.log('MARKING APP READY')
+
+      yield* markAppReady
+
       // Show the window once the content has finished loading
-      webContentsView.webContents.once('did-finish-load', () => {
-        baseWindow.show()
-        log.info('[APP-FLOW] BaseWindow shown successfully after content loaded')
-      })
+      // webContentsView.webContents.once('did-finish-load', () => {
+      //   baseWindow.show()
+      //   log.info('[APP-FLOW] BaseWindow shown successfully after content loaded')
+
+      //   // Start communication systems testing after window is loaded
+      //   setTimeout(() => {
+      //     testCommunicationSystemsSimple()
+      //   }, 2000)
+      // })
+
+      setTimeout(() => {
+        console.log('TESTING COMMUNICATION SYSTEMS')
+        testCommunicationSystemsSimple()
+      }, 2000)
 
       // Handle window closed event and cleanup WebContentsView
       baseWindow.on('closed', () => {
@@ -107,46 +136,113 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       yield* Effect.logInfo('BaseWindow created and app loaded successfully')
       log.info('[APP-FLOW] BaseWindow created and app loaded successfully')
 
-      // Run Claude Code test after app window is created
-      yield* Effect.logInfo('🤖 Running Claude Code test on app launch')
-      log.info('[APP-FLOW] 🤖 About to execute Claude Code test script creation')
+      // Simplified communication systems test function
+      const testCommunicationSystemsSimple = () => {
+        log.info('[APP-FLOW] 🧪 Starting simplified communication systems test')
 
-      // const claudeCodeResult = yield* Effect.fork(
-      //   claudeCodeService
-      //     .createSimpleScript(
-      //       'calculates the sum of two numbers and logs the result with timestamps',
-      //       'sum-calculator.ts'
-      //     )
-      //     .pipe(
-      //       Effect.tap((messages) =>
-      //         Effect.gen(function* () {
-      //           yield* Effect.logInfo(`🤖 Claude Code completed with ${messages.length} messages`)
-      //           log.info(
-      //             `[APP-FLOW] 🤖 Claude Code execution completed with ${messages.length} messages`
-      //           )
+        // 1. Test IPCRef - App Ready State
+        // setTimeout(() => {
+        //   log.info('[APP-FLOW] 📡 Testing IPCRef - Setting app ready state')
+        //   SlideRuntime.runPromise(
+        //     markAppReady.pipe(
+        //       Effect.provide(AppReadyRefLive),
+        //       Effect.provide(IPCRefService.Default)
+        //     )
+        //   )
+        //     .then(() => {
+        //       log.info('[APP-FLOW] 📡 App ready state set successfully')
+        //     })
+        //     .catch((error) => {
+        //       log.error('[APP-FLOW] ❌ Error setting app ready state:', error)
+        //     })
+        // }, 1000)
 
-      //           // Log a summary of the results
-      //           const successMessages = messages.filter(
-      //             (m) => m.type === 'result' && (m as any).subtype === 'success'
-      //           )
-      //           if (successMessages.length > 0) {
-      //             log.info('[APP-FLOW] 🤖 Claude Code script creation was successful!')
-      //           } else {
-      //             log.warn('[APP-FLOW] 🤖 Claude Code execution may not have been fully successful')
-      //           }
-      //         })
-      //       ),
-      //       Effect.catchAll((error) =>
-      //         Effect.gen(function* () {
-      //           yield* Effect.logError('🤖 Claude Code test failed', error)
-      //           log.error('[APP-FLOW] 🤖 Claude Code test failed:', error)
-      //         })
-      //       )
-      //     )
-      // )
+        // 2. Test PubSub - Publish various messages
+        setTimeout(() => {
+          log.info('[APP-FLOW] 📢 Testing PubSub - Publishing messages')
 
-      yield* Effect.logInfo('🤖 Claude Code test started in background')
-      log.info('[APP-FLOW] 🤖 Claude Code test execution initiated')
+          Effect.runPromise(
+            pubsub.publish(createSetWindowTitle('SlideCode - Communication Test Active'))
+          )
+            .then(() => {
+              log.info('[APP-FLOW] 📢 Published SetWindowTitle message')
+            })
+            .catch((error) => {
+              log.error('[APP-FLOW] ❌ Error publishing SetWindowTitle:', error)
+            })
+
+          setTimeout(() => {
+            Effect.runPromise(pubsub.publish(createGetAppInfo(true)))
+              .then(() => {
+                log.info('[APP-FLOW] 📢 Published GetAppInfo message')
+              })
+              .catch((error) => {
+                log.error('[APP-FLOW] ❌ Error publishing GetAppInfo:', error)
+              })
+          }, 1000)
+
+          setTimeout(() => {
+            Effect.runPromise(pubsub.publish(createShowUpdateDialog(false)))
+              .then(() => {
+                log.info('[APP-FLOW] 📢 Published ShowUpdateDialog message')
+              })
+              .catch((error) => {
+                log.error('[APP-FLOW] ❌ Error publishing ShowUpdateDialog:', error)
+              })
+          }, 2000)
+
+          // Test query invalidation
+          setTimeout(() => {
+            log.info('[APP-FLOW] 🔄 Testing query invalidation from main process')
+            const queryInvalidationMessage = createInvalidateQuery(['test-query-from-main'])
+            Effect.runPromise(pubsub.publish(queryInvalidationMessage))
+              .then(() => {
+                log.info(
+                  '[APP-FLOW] 🔄 Published query invalidation message:',
+                  queryInvalidationMessage
+                )
+              })
+              .catch((error) => {
+                log.error('[APP-FLOW] ❌ Error publishing query invalidation:', error)
+              })
+          }, 3000)
+        }, 3000)
+
+        // 3. Test periodic PubSub messages
+        setTimeout(() => {
+          log.info('[APP-FLOW] 🔄 Starting periodic PubSub messages test')
+
+          setInterval(() => {
+            const timestamp = new Date().toLocaleTimeString()
+            const periodicMessage = createSetWindowTitle(`SlideCode - Periodic Test ${timestamp}`)
+            Effect.runPromise(pubsub.publish(periodicMessage))
+              .then(() => {
+                log.info('[APP-FLOW] 🔄 Published periodic PubSub message')
+              })
+              .catch((error) => {
+                log.error('[APP-FLOW] 🔄 Error publishing periodic message:', error)
+              })
+          }, 10000)
+
+          // Also test periodic query invalidation
+          setInterval(() => {
+            const timestamp = new Date().toLocaleTimeString()
+            const periodicQueryInvalidation = createInvalidateQuery([`periodic-test-${timestamp}`])
+            Effect.runPromise(pubsub.publish(periodicQueryInvalidation))
+              .then(() => {
+                log.info(
+                  '[APP-FLOW] 🔄 Published periodic query invalidation:',
+                  periodicQueryInvalidation
+                )
+              })
+              .catch((error) => {
+                log.error('[APP-FLOW] 🔄 Error publishing periodic query invalidation:', error)
+              })
+          }, 15000) // Every 15 seconds for query invalidation
+        }, 5000)
+
+        log.info('[APP-FLOW] 🧪 All communication systems tests initiated')
+      }
 
       return true
     } catch (error) {

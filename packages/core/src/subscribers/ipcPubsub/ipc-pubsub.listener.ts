@@ -19,24 +19,37 @@ export class IpcPubsubListener {
     const moduleName = this.moduleName
 
     const make = Effect.gen(function* () {
-      yield* Effect.logInfo('Starting IPC pubsub listener')
+      yield* Effect.logInfo('📨 Starting IPC pubsub listener with enhanced logging')
 
       const pubsub = yield* PubSubClient
 
       // Set up the IPC listener for commands on PUBLISH channel
       ipcMain.on(PUBSUB_CHANNELS.PUBLISH, (_, serializedCommand) => {
-        console.log('Received IPC pubsub message:', serializedCommand)
+        console.log('[IPC-PUBSUB-LISTENER] 📨 Received IPC pubsub message from renderer:', {
+          timestamp: Date.now(),
+          channel: PUBSUB_CHANNELS.PUBLISH,
+          rawMessage: serializedCommand
+        })
+
         Effect.suspend(() => {
           try {
             // Deserialize the command
             const command = deserializeMessage(serializedCommand)
-            console.log('Deserialized command:', command)
+            console.log('[IPC-PUBSUB-LISTENER] 📨 Successfully deserialized command:', {
+              type: command._tag,
+              command: command
+            })
+            console.log(
+              '[IPC-PUBSUB-LISTENER] 📨 Full deserialized command:',
+              JSON.stringify(command, null, 2)
+            )
 
             // Forward the command to the PubSub service
-            console.debug('Forwarding to PubSub:', command)
+            console.debug('[IPC-PUBSUB-LISTENER] 📨 Forwarding to PubSub:', command)
             return publish(command)
           } catch (error) {
-            console.error('Error processing pubsub message:', error)
+            console.error('[IPC-PUBSUB-LISTENER] ❌ Error processing pubsub message:', error)
+            console.error('[IPC-PUBSUB-LISTENER] ❌ Raw message that failed:', serializedCommand)
             return Effect.void
           }
         }).pipe(Effect.runFork)
@@ -47,22 +60,30 @@ export class IpcPubsubListener {
        */
       const publish = (command: Message): Effect.Effect<boolean> =>
         Effect.gen(function* () {
-          console.debug(`Publishing command to PubSub: ${command._tag}`)
-          return yield* pubsub.publish(command)
+          console.debug(`[IPC-PUBSUB-LISTENER] 📨 Publishing command to PubSub: ${command._tag}`)
+          const result = yield* pubsub.publish(command)
+          console.log(
+            `[IPC-PUBSUB-LISTENER] 📨 Successfully published ${command._tag} to PubSub, result:`,
+            result
+          )
+          return result
         })
 
       yield* Effect.acquireRelease(
         Effect.sync(() => {
-          console.info('IPC command listener started')
+          console.info(
+            '[IPC-PUBSUB-LISTENER] 📨 IPC command listener started and listening on channel:',
+            PUBSUB_CHANNELS.PUBLISH
+          )
           return () => {
-            console.info('Cleaning up IPC command listener')
+            console.info('[IPC-PUBSUB-LISTENER] 📨 Cleaning up IPC command listener')
             ipcMain.removeAllListeners(PUBSUB_CHANNELS.PUBLISH)
           }
         }),
         (cleanup) =>
           Effect.sync(() => {
             cleanup()
-            console.info('IPC command listener stopped')
+            console.info('[IPC-PUBSUB-LISTENER] 📨 IPC command listener stopped')
           })
       )
     }).pipe(Effect.annotateLogs({ module: moduleName }))

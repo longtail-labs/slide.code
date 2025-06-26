@@ -80,7 +80,7 @@ export class PubsubClient {
    * Handle incoming messages and distribute to subscribers
    */
   private handleIncomingMessage(message: Message): void {
-    console.debug('Received message:', message)
+    console.debug('PUBSUBCLIENT: Received  message:', message)
 
     // Get the message type from the type property
     const messageType = message._tag

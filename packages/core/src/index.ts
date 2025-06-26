@@ -1,6 +1,6 @@
 import { Layer, ManagedRuntime } from 'effect'
-// import * as RpcSerialization from '@effect/rpc/RpcSerialization'
-// import * as RpcServer from '@effect/rpc/RpcServer'
+import * as RpcSerialization from '@effect/rpc/RpcSerialization'
+import * as RpcServer from '@effect/rpc/RpcServer'
 
 import {
   SentryService,
@@ -8,13 +8,15 @@ import {
   ElectronEventService,
   PostHogService,
   PubSubClient,
-  SubscriptionService,
-  APIService,
   GlobalShortcutService,
   ClaudeCodeService
 } from './services/index.js'
 
 import { PubSubSubscribers } from './subscribers/index.js'
+import {
+  IpcPubsubListenerLive,
+  RendererBroadcasterSubscriberLive
+} from './subscribers/ipcPubsub/index.js'
 
 import { RefsLayer, UpdateRef } from './refs/index.js'
 
@@ -27,10 +29,11 @@ import {
 
 import * as config from './config.js'
 import { DefaultLoggerLayer } from './logger.js'
+import { IPCRefService } from './services/ipc-ref.service.js'
 // Import directly from RPC files
-// import { SlideRpcs } from '@polka/schema/requests'
-// import { SlideLive } from './rpc/handlers.js'
-// import { ElectronProtocolLayer } from './rpc/index.js'
+import { SlideRpcs } from '@slide.code/schema/requests'
+import { SlideLive } from './rpc/handlers.js'
+import { ElectronProtocolLayer } from './rpc/index.js'
 
 // Create a default logger to use immediately (no config needed)
 // const defaultLogger = createDefaultLogger()
@@ -42,13 +45,12 @@ import { DefaultLoggerLayer } from './logger.js'
 // First create the base services that don't have dependencies
 const BaseServicesLayer = Layer.mergeAll(
   DefaultLoggerLayer,
+  IPCRefService.Default,
   SentryService.Default,
   PostHogService.Default,
   MenuService.Default,
   ElectronEventService.Default,
   RefsLayer,
-  SubscriptionService.Default,
-  APIService.Default,
   ClaudeCodeService.Default
   // GlobalShortcutService.Default
 )
@@ -60,6 +62,18 @@ const PubSubLayer = Layer.merge(DefaultLoggerLayer, PubSubClient.Default)
 const SubscribersLayer = PubSubSubscribers.pipe(
   Layer.provide(Layer.mergeAll(BaseServicesLayer, PubSubLayer))
 )
+
+// Add the IPC bridge layers (these are essential for renderer<->main communication)
+// const IpcBridgeLayer = Layer.mergeAll(
+//   IpcPubsubListenerLive,
+//   RendererBroadcasterSubscriberLive
+// ).pipe(Layer.provide(Layer.mergeAll(BaseServicesLayer, PubSubLayer)))
+
+const SerializationLayer = Layer.merge(DefaultLoggerLayer, RpcSerialization.layerNdjson)
+
+const ProtocolLayer = Layer.provide(ElectronProtocolLayer, SerializationLayer)
+
+const RpcLayer = Layer.provide(RpcServer.layer(SlideRpcs), Layer.merge(SlideLive, ProtocolLayer))
 
 // RPC serialization layer
 // const SerializationLayer = Layer.merge(DefaultLoggerLayer, RpcSerialization.layerNdjson)
@@ -75,7 +89,7 @@ const SubscribersLayer = PubSubSubscribers.pipe(
 // This is a workaround for the type system constraints
 export const CoreLayer = Layer.mergeAll(
   DefaultLoggerLayer,
-  // RpcLayer,
+  RpcLayer,
   BaseServicesLayer,
   PubSubLayer,
   SubscribersLayer
@@ -93,7 +107,7 @@ export {
 
 export { config }
 
-export { SentryService, MenuService, UpdateRef, SubscriptionService, APIService }
+export { SentryService, MenuService, UpdateRef }
 
 // Export message system
 export * from './services/pubsub.service.js'

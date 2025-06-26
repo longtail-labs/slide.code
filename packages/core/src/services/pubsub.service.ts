@@ -1,9 +1,10 @@
 import { Effect, PubSub, Queue, Scope, Stream } from 'effect'
-import type { Message, MessageType } from '@slide.code/schema/messages'
+import { serializeMessage, type Message, type MessageType } from '@slide.code/schema/messages'
 import { webContents } from 'electron'
 
 // Channel name for renderer communication
 import { DefaultLoggerLayer } from '../logger.js'
+import { PUBSUB_CHANNELS } from '@slide.code/types'
 
 export interface IPubSubClient {
   publish: (message: Message) => Effect.Effect<boolean>
@@ -46,11 +47,21 @@ export class PubSubClient extends Effect.Service<PubSubClient>()('PubSubClient',
     )
 
     const publish = (message: Message): Effect.Effect<boolean> => {
+      console.log('[PUBSUB-SERVICE] 📢 Publishing message:', {
+        type: message._tag,
+        timestamp: Date.now(),
+        message: message
+      })
       Effect.logDebug('Publishing message:', message)
       return PubSub.publish(pubsub, message)
     }
 
     const unsafePublish = (message: Message): boolean => {
+      console.log('[PUBSUB-SERVICE] 📢 Unsafe publishing message:', {
+        type: message._tag,
+        timestamp: Date.now(),
+        message: message
+      })
       Effect.logDebug('Unsafe publishing message:', message)
       return pubsub.unsafeOffer(message)
     }
@@ -143,20 +154,53 @@ export class PubSubClient extends Effect.Service<PubSubClient>()('PubSubClient',
       Effect.sync(() => {
         try {
           const allWebContents = webContents.getAllWebContents()
-          console.debug(`Broadcasting message to ${allWebContents.length} renderer(s):`, message)
+          console.log(
+            `[PUBSUB-SERVICE] 🎯 Broadcasting message to ${allWebContents.length} renderer(s):`,
+            {
+              type: message._tag,
+              rendererCount: allWebContents.length,
+              timestamp: Date.now(),
+              message: message
+            }
+          )
+          console.debug(
+            `[PUBSUB-SERVICE] 🎯 Full message being broadcast:`,
+            JSON.stringify(message, null, 2)
+          )
+
+          let successCount = 0
+          let failureCount = 0
+
+          const serializedMessage = serializeMessage(message)
+
+          console.log('SERIALIZED MESSAGE', serializedMessage)
 
           for (const contents of allWebContents) {
             try {
               if (!contents.isDestroyed()) {
                 // Send the message directly - renderer can handle deserialization
-                contents.send('pubsub-message', message)
+                contents.send(PUBSUB_CHANNELS.RENDERER_SUBSCRIBE, serializedMessage)
+                successCount++
+                console.debug(
+                  `[PUBSUB-SERVICE] 🎯 Successfully sent to WebContents ID ${contents.id}`
+                )
+              } else {
+                console.warn(`[PUBSUB-SERVICE] ⚠️ Skipped destroyed WebContents ID ${contents.id}`)
               }
             } catch (error) {
-              console.error(`Failed to send message to WebContents ID ${contents.id}:`, error)
+              failureCount++
+              console.error(
+                `[PUBSUB-SERVICE] ❌ Failed to send message to WebContents ID ${contents.id}:`,
+                error
+              )
             }
           }
+
+          console.log(
+            `[PUBSUB-SERVICE] 🎯 Broadcast complete - Success: ${successCount}, Failures: ${failureCount}`
+          )
         } catch (error) {
-          console.error('Error broadcasting to renderers:', error)
+          console.error('[PUBSUB-SERVICE] ❌ Error broadcasting to renderers:', error)
         }
       })
 

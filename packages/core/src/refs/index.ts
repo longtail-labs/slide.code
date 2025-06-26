@@ -1,12 +1,11 @@
-export * from './theme.ref.js'
-export * from './update.ref.js'
+export * from './ipc/app-ready.ref.js'
+export * from './ipc/theme.ref.js'
+export * from './ipc/update.ref.js'
+export * from './ipc/user.ref.js'
 
 import { Layer } from 'effect'
-
-import { ThemeRefLive } from './theme.ref.js'
-import { UpdateRefLive } from './update.ref.js'
-import { UserRefLive } from './user.ref.js'
+import { AppReadyRefLive, ThemeRefLive, UpdateRefLive, UserRefLive } from './ipc/index.js'
 /**
  * Combined layer for all refs
  */
-export const RefsLayer = Layer.mergeAll(ThemeRefLive, UpdateRefLive, UserRefLive)
+export const RefsLayer = Layer.mergeAll(AppReadyRefLive, ThemeRefLive, UpdateRefLive, UserRefLive)

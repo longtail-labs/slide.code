@@ -26,8 +26,10 @@ export const exposePubsubBridge = (): void => {
      * Used to receive published events from PubSub
      */
     subscribe: (callback: (message: Message) => void) => {
+      console.log('SUBSCRIBING TO MESSAGES')
       // Create a handler that receives IPC messages and deserializes them
       const handler = (_event: Electron.IpcRendererEvent, serializedMessage: string) => {
+        console.log('RECEIVED MESSAGE', serializedMessage)
         try {
           // Deserialize the message from IPC
           const message = deserializeMessage(serializedMessage)

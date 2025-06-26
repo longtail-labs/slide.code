@@ -17,7 +17,7 @@ export class RendererBroadcasterSubscriber {
     const moduleName = this.moduleName
 
     const make = Effect.gen(function* () {
-      yield* Effect.logInfo('Starting RendererBroadcaster')
+      yield* Effect.logInfo('📡 Starting RendererBroadcaster with enhanced logging')
 
       const pubsub = yield* PubSubClient
 
@@ -29,17 +29,37 @@ export class RendererBroadcasterSubscriber {
         messageStream.pipe(
           Stream.tap((message: Message) =>
             Effect.sync(() => {
-              console.debug('Broadcasting message to renderers:', message)
+              console.debug('[RENDERER-BROADCASTER] 📡 Broadcasting message to renderers:', {
+                type: message._tag,
+                timestamp: Date.now(),
+                message: message
+              })
+              console.log('[RENDERER-BROADCASTER] 📡 Message type:', message._tag)
+              console.log(
+                '[RENDERER-BROADCASTER] 📡 Full message:',
+                JSON.stringify(message, null, 2)
+              )
             })
           ),
-          Stream.mapEffect((message: Message) => pubsub.broadcastToRenderers(message)),
+          Stream.mapEffect((message: Message) =>
+            Effect.gen(function* () {
+              yield* Effect.logInfo(`📡 Broadcasting ${message._tag} to all renderers`)
+              yield* pubsub.broadcastToRenderers(message)
+              yield* Effect.logInfo(`📡 Successfully broadcasted ${message._tag}`)
+            })
+          ),
           Stream.runDrain
         )
       )
 
       yield* Effect.acquireRelease(
-        Effect.sync(() => console.info('RendererBroadcaster started')),
-        () => Effect.sync(() => console.info('RendererBroadcaster stopped'))
+        Effect.sync(() =>
+          console.info(
+            '[RENDERER-BROADCASTER] 📡 RendererBroadcaster started and listening for messages'
+          )
+        ),
+        () =>
+          Effect.sync(() => console.info('[RENDERER-BROADCASTER] 📡 RendererBroadcaster stopped'))
       )
     }).pipe(Effect.annotateLogs({ module: moduleName }))
 

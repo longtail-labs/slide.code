@@ -10,3 +10,6 @@ export * from './app/index.js'
 
 // Update-related helpers
 export * from './update/index.js'
+
+// User-related helpers
+export * from './users/index.js'
