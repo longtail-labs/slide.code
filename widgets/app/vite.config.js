@@ -1,12 +1,12 @@
 // import MillionLint from '@million/lint'
 // vite.config.js in @polka/renderer package
 import { defineConfig } from 'vite'
-import { TanStackRouterVite } from '@tanstack/router-vite-plugin'
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { join } from 'path'
 import { chrome } from '../../.electron-vendors.cache.json'
 import tsconfigPaths from 'vite-tsconfig-paths' // Import the plugin
-import Unfonts from 'unplugin-fonts/vite'
+import webfontDownload from 'vite-plugin-webfont-dl'
 import tailwindcss from '@tailwindcss/vite'
 
 const PACKAGE_ROOT = __dirname
@@ -52,22 +52,24 @@ export default defineConfig({
     environment: 'happy-dom'
   },
   plugins: [
-    tailwindcss(),
     // MillionLint.vite({
     //   enabled: true,
     // }),
-    react(),
-    Unfonts({
-      custom: {
-        families: [
-          {
-            name: 'Geist',
-            src: './src/assets/fonts/geist/*.woff2'
-          }
-        ]
-      }
+    // TanStackRouterVite({ autoCodeSplitting: true }),
+    tanstackRouter({
+      target: 'react',
+      autoCodeSplitting: true
     }),
-    TanStackRouterVite(),
+    react(),
+    tailwindcss(),
+    webfontDownload(
+      [
+        'https://fonts.googleapis.com/css2?family=Recursive:slnt,wght,CASL,CRSV,MONO@-15..0,300..800,0..1,0..1,0..1&display=swap'
+      ],
+      {
+        cache: true
+      }
+    ),
     tsconfigPaths()
   ]
 })

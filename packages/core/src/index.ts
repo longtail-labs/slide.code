@@ -9,7 +9,7 @@ import {
   PostHogService,
   PubSubClient,
   GlobalShortcutService,
-  ClaudeCodeService
+  TaskService
 } from './services/index.js'
 
 import { PubSubSubscribers } from './subscribers/index.js'
@@ -18,13 +18,15 @@ import {
   RendererBroadcasterSubscriberLive
 } from './subscribers/ipcPubsub/index.js'
 
-import { RefsLayer, UpdateRef } from './refs/index.js'
+import { RefsLayer, UpdateRef, UserRef } from './refs/index.js'
 
 import {
   configurePerformanceOptimizations,
   ensureSingleInstance,
   registerSSRProtocols,
-  registerDeepLinkingProtocol
+  registerDeepLinkingProtocol,
+  createVibeDir,
+  findClaudeCodeExecutable
 } from './effects/index.js'
 
 import * as config from './config.js'
@@ -51,7 +53,7 @@ const BaseServicesLayer = Layer.mergeAll(
   MenuService.Default,
   ElectronEventService.Default,
   RefsLayer,
-  ClaudeCodeService.Default
+  TaskService.Default
   // GlobalShortcutService.Default
 )
 
@@ -102,15 +104,29 @@ export {
   configurePerformanceOptimizations,
   ensureSingleInstance,
   registerSSRProtocols,
-  registerDeepLinkingProtocol
+  registerDeepLinkingProtocol,
+  createVibeDir,
+  findClaudeCodeExecutable
 }
 
 export { config }
 
-export { SentryService, MenuService, UpdateRef }
+export { SentryService, MenuService, UpdateRef, UserRef }
 
 // Export message system
 export * from './services/pubsub.service.js'
 
 // Export services
 export * from './services/index.js'
+
+// Export types
+export * from './types/claude-code.types.js'
+
+// Task Service
+export {
+  TaskService,
+  TaskServiceLive,
+  TaskServiceError,
+  type TaskInfo,
+  type AgentEvent
+} from './services/task.service.js'

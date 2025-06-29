@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { v4 as uuidv4 } from 'uuid'
 import { IPCRefService } from '../../services/ipc-ref.service.js'
-import { UserStateSchema, type UserState } from '../../state.js'
+import { UserStateSchema, type UserState } from '@slide.code/schema'
 import { ElectronStoreUtil } from '../../utils/electron-store.util.js'
 /**
  * Initial state for the User ref
@@ -11,7 +11,13 @@ export const initialUserState: UserState = {
   userId: '',
   installationDate: 0,
   subscribed: false,
-  lastSubscriptionCheck: 0
+  lastSubscriptionCheck: 0,
+  claudeCode: {
+    executablePath: null,
+    lastDetected: null,
+    stats: { totalRequests: 0, totalCost: 0, lastUsed: null }
+  },
+  vibeDirectory: ''
 }
 
 /**
@@ -47,7 +53,7 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
 
     if (existingUserData) {
       try {
-        // Use existing user data
+        // Use existing user data directly since claudeCode is now optional
         yield* Effect.logInfo('[UserRef] Using existing user data')
         userState = existingUserData as UserState
       } catch (error) {
@@ -88,6 +94,82 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
         return true
       })
 
+    /**
+     * Update the vibe directory path
+     */
+    const updateVibeDirectory = (vibeDirectory: string) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] updateVibeDirectory', vibeDirectory)
+        yield* ref.update((state) => ({
+          ...state,
+          vibeDirectory
+        }))
+        return true
+      })
+
+    /**
+     * Update Claude Code executable path
+     */
+    const updateClaudeCodeExecutablePath = (executablePath: string | null) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] updateClaudeCodeExecutablePath', executablePath)
+        yield* ref.update((state) => ({
+          ...state,
+          claudeCode: {
+            executablePath,
+            lastDetected: executablePath ? Date.now() : null,
+            stats: state.claudeCode?.stats || {
+              totalRequests: 0,
+              totalCost: 0,
+              lastUsed: null
+            }
+          }
+        }))
+        return true
+      })
+
+    /**
+     * Update Claude Code usage stats
+     */
+    const updateClaudeCodeStats = (stats: { requests?: number; cost?: number }) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] updateClaudeCodeStats', stats)
+        yield* ref.update((state) => {
+          const currentClaudeCode = state.claudeCode || {
+            executablePath: null,
+            lastDetected: null,
+            stats: { totalRequests: 0, totalCost: 0, lastUsed: null }
+          }
+
+          return {
+            ...state,
+            claudeCode: {
+              ...currentClaudeCode,
+              stats: {
+                totalRequests: currentClaudeCode.stats.totalRequests + (stats.requests || 0),
+                totalCost: currentClaudeCode.stats.totalCost + (stats.cost || 0),
+                lastUsed: Date.now()
+              }
+            }
+          }
+        })
+        return true
+      })
+
+    /**
+     * Get Claude Code configuration
+     */
+    const getClaudeCodeConfig = Effect.gen(function* () {
+      const state = yield* ref.get()
+      return (
+        state.claudeCode || {
+          executablePath: null,
+          lastDetected: null,
+          stats: { totalRequests: 0, totalCost: 0, lastUsed: null }
+        }
+      )
+    })
+
     // Register a finalizer for cleanup
     yield* Effect.addFinalizer(() =>
       Effect.gen(function* () {
@@ -99,7 +181,11 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
     // Return the service API
     return {
       ref,
-      updateSubscriptionStatus
+      updateSubscriptionStatus,
+      updateVibeDirectory,
+      updateClaudeCodeExecutablePath,
+      updateClaudeCodeStats,
+      getClaudeCodeConfig
     }
   })
 }) {}
@@ -153,3 +239,47 @@ export const updateSubscriptionStatus = (subscribed: boolean) =>
     const userRef = yield* UserRef
     return yield* userRef.updateSubscriptionStatus(subscribed)
   })
+
+/**
+ * Update the vibe directory path (exposed for direct invocation)
+ */
+export const updateVibeDirectory = (vibeDirectory: string) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.updateVibeDirectory(vibeDirectory)
+  })
+
+/**
+ * Update Claude Code executable path (exposed for direct invocation)
+ */
+export const updateClaudeCodeExecutablePath = (executablePath: string | null) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.updateClaudeCodeExecutablePath(executablePath)
+  })
+
+/**
+ * Update Claude Code usage stats (exposed for direct invocation)
+ */
+export const updateClaudeCodeStats = (stats: { requests?: number; cost?: number }) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.updateClaudeCodeStats(stats)
+  })
+
+/**
+ * Get Claude Code configuration (exposed for direct invocation)
+ */
+export const getClaudeCodeConfig = () =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.getClaudeCodeConfig
+  })
+
+/**
+ * Get Claude Code executable path
+ */
+export const getClaudeCodeExecutablePath = Effect.gen(function* () {
+  const config = yield* getClaudeCodeConfig()
+  return config.executablePath
+})

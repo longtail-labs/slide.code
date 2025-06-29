@@ -23,7 +23,10 @@ const config = defineConfig({
     assetsDir: '.',
     minify: process.env.MODE !== 'development',
     lib: {
-      entry: 'src/index.ts',
+      entry: {
+        index: 'src/index.ts',
+        'webview-preload': 'src/webview-preload.ts'
+      },
       formats: ['es']
     },
     rollupOptions: {

@@ -19,7 +19,8 @@ import {
   registerSSRProtocols,
   GlobalShortcutService,
   registerDeepLinkingProtocol,
-  ClaudeCodeService
+  createVibeDir,
+  UserRef
 } from '@slide.code/core'
 import { Effect, Fiber, Match, Stream } from 'effect'
 import path from 'path'
@@ -47,12 +48,17 @@ const program = Effect.gen(function* () {
     const electronEventService = yield* ElectronEventService // Get the electron event service
     const posthog = yield* PostHogService // Get the PostHog service
     const sentry = yield* SentryService
+    const userRef = yield* UserRef
     // const globalShortcutService = yield* GlobalShortcutService
     yield* Effect.logInfo('Initializing ElectronEventService')
     yield* electronEventService.initialize
 
     // Then do other performance optimizations and instance checks
     yield* Effect.all([configurePerformanceOptimizations, ensureSingleInstance])
+
+    // Create vibe-dir and save path to user ref
+    const vibeDir = yield* createVibeDir
+    yield* userRef.updateVibeDirectory(vibeDir)
 
     // Get configuration using Effect Config
     yield* Effect.logInfo('Loading configuration')
@@ -187,7 +193,7 @@ const program = Effect.gen(function* () {
 const main = program.pipe(Effect.catchTags({}))
 
 export function initApp() {
-  SlideRuntime.runPromise(Effect.withConfigProvider(main, config.viteConfigProvider())).catch(
+  SlideRuntime.runPromise(Effect.withConfigProvider(program, config.viteConfigProvider())).catch(
     (error) => {
       console.error('Error in main', error)
 

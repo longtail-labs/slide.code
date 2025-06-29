@@ -1,7 +1,10 @@
 // handlers.ts
 import type { Rpc } from '@effect/rpc'
-import { Effect, Layer, Ref, Stream, Schedule } from 'effect'
-import { User, SlideRpcs, ChatMessage } from './requests.js'
+import { Effect, Layer, Ref, Stream, Schedule, Option } from 'effect'
+import { User, SlideRpcs, ChatMessage, Project, Task } from './requests.js'
+import * as path from 'node:path'
+import * as fs from 'node:fs/promises'
+import * as crypto from 'node:crypto'
 // ---------------------------------------------
 // Imaginary Database
 // ---------------------------------------------
@@ -50,6 +53,66 @@ class UserRepository extends Effect.Service<UserRepository>()('UserRepository', 
   })
 }) {}
 
+class ProjectRepository extends Effect.Service<ProjectRepository>()('ProjectRepository', {
+  effect: Effect.gen(function* () {
+    const projects = yield* Ref.make<Array<Project>>([])
+
+    return {
+      find: (id: string) =>
+        Ref.get(projects).pipe(
+          Effect.map((ps) => Option.fromNullable(ps.find((p) => p.id === id)))
+        ),
+      add: (projectPath: string) =>
+        Effect.gen(function* () {
+          const name = path.basename(projectPath)
+          const id = projectPath // using path as id
+          const newProject = new Project({ id, name, path: projectPath })
+          yield* Ref.update(projects, (ps) => [...ps, newProject])
+          return newProject
+        })
+    }
+  })
+}) {}
+
+class TaskRepository extends Effect.Service<TaskRepository>()('TaskRepository', {
+  effect: Effect.gen(function* () {
+    const tasks = yield* Ref.make<Array<Task>>([])
+
+    return {
+      find: (id: string) =>
+        Ref.get(tasks).pipe(Effect.map((ts) => Option.fromNullable(ts.find((t) => t.id === id)))),
+      create: (title: string, projectId?: string) =>
+        Effect.gen(function* () {
+          const newTask = new Task({
+            id: crypto.randomUUID(),
+            title,
+            projectId,
+            status: 'working'
+          })
+          yield* Ref.update(tasks, (ts) => [...ts, newTask])
+          return newTask
+        }),
+      updateStatus: (id: string, status: string) =>
+        Ref.get(tasks).pipe(
+          Effect.flatMap((currentTasks) => {
+            const task = currentTasks.find((t) => t.id === id)
+            if (!task) {
+              return Effect.fail(`Task with id ${id} not found`)
+            }
+            const updatedTask = new Task({
+              id: task.id,
+              title: task.title,
+              projectId: task.projectId,
+              status
+            })
+            const updatedTasks = currentTasks.map((t) => (t.id === id ? updatedTask : t))
+            return Ref.set(tasks, updatedTasks).pipe(Effect.as(updatedTask))
+          })
+        )
+    }
+  })
+}) {}
+
 // ---------------------------------------------
 // Consolidated RPC handlers
 // ---------------------------------------------
@@ -58,6 +121,22 @@ export const SlideLive = SlideRpcs.toLayer(
   Effect.gen(function* () {
     console.log('[SLIDE-LIVE] 🔧 Creating Slide live layer with enhanced logging')
     const userRepo = yield* UserRepository
+    const projectRepo = yield* ProjectRepository
+    const taskRepo = yield* TaskRepository
+
+    // Helper function to recursively read files
+    const readFilesRecursive = (dir: string): Stream.Stream<string, Error> =>
+      Stream.fromIterableEffect(
+        Effect.tryPromise({
+          try: () => fs.readdir(dir, { withFileTypes: true }),
+          catch: (e) => e as Error
+        })
+      ).pipe(
+        Stream.flatMap((entry) => {
+          const fullPath = path.join(dir, entry.name)
+          return entry.isDirectory() ? readFilesRecursive(fullPath) : Stream.succeed(fullPath)
+        })
+      )
 
     return {
       // User handlers
@@ -117,10 +196,37 @@ export const SlideLive = SlideRpcs.toLayer(
             return message
           })
         ).pipe(Stream.schedule(Schedule.spaced(interval)))
-      }
+      },
+
+      // New handlers
+      GetFileDiff: ({ path }) =>
+        Effect.succeed(`--- a/${path}\\n+++ b/${path}\\n... diff for ${path}`),
+      GetFileContent: ({ path }) =>
+        Effect.tryPromise({
+          try: () => fs.readFile(path, 'utf-8'),
+          catch: (e) => (e as Error).message
+        }),
+      FileState: ({ path }) => Effect.succeed('modified'),
+      ProjectFiles: ({ projectId }) =>
+        projectRepo.find(projectId).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.fail(`Project with id ${projectId} not found`),
+              onSome: (project) => Effect.succeed(readFilesRecursive(project.path))
+            })
+          ),
+          Stream.unwrap,
+          Stream.mapError((e) => (e instanceof Error ? e.message : String(e)))
+        ),
+      CreateTask: ({ initialPrompt, projectId }) => taskRepo.create(initialPrompt, projectId),
+      WorkOnTask: ({ taskId }) => taskRepo.updateStatus(taskId, 'working'),
+      ArchiveTask: ({ taskId }) => taskRepo.updateStatus(taskId, 'archived'),
+      AddProject: ({ path }) => projectRepo.add(path)
     }
   })
 ).pipe(
   // Provide the repository layers
-  Layer.provide(UserRepository.Default)
+  Layer.provide(UserRepository.Default),
+  Layer.provide(ProjectRepository.Default),
+  Layer.provide(TaskRepository.Default)
 )

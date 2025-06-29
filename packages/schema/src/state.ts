@@ -76,13 +76,43 @@ export const SlideStateSchema = Schema.Union(
 export type SlideState = Schema.Schema.Type<typeof SlideStateSchema>
 
 /**
+ * Schema for Claude Code usage stats
+ */
+export const ClaudeCodeStatsSchema = Schema.Struct({
+  totalRequests: Schema.Number,
+  totalCost: Schema.Number,
+  lastUsed: Schema.Union(Schema.Number, Schema.Null)
+})
+
+/**
+ * Type for Claude Code stats
+ */
+export type ClaudeCodeStats = Schema.Schema.Type<typeof ClaudeCodeStatsSchema>
+
+/**
+ * Schema for Claude Code configuration
+ */
+export const ClaudeCodeConfigSchema = Schema.Struct({
+  executablePath: Schema.Union(Schema.String, Schema.Null),
+  lastDetected: Schema.Union(Schema.Number, Schema.Null),
+  stats: ClaudeCodeStatsSchema
+})
+
+/**
+ * Type for Claude Code configuration
+ */
+export type ClaudeCodeConfig = Schema.Schema.Type<typeof ClaudeCodeConfigSchema>
+
+/**
  * Schema for the UserState ref
  */
 export const UserStateSchema = Schema.Struct({
   userId: Schema.String,
   installationDate: Schema.Number,
   subscribed: Schema.Boolean,
-  lastSubscriptionCheck: Schema.Number
+  lastSubscriptionCheck: Schema.Number,
+  claudeCode: Schema.optional(ClaudeCodeConfigSchema),
+  vibeDirectory: Schema.optional(Schema.String)
 })
 
 /**

@@ -1,6 +1,6 @@
 import { Effect, Stream } from 'effect'
 import { IPCRefService } from '../../services/ipc-ref.service.js'
-import { ThemeSchema, type ThemeState } from '../../state.js'
+import { ThemeSchema, type ThemeState } from '@slide.code/schema'
 import { nativeTheme } from 'electron'
 
 /**

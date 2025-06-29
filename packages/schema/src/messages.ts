@@ -124,7 +124,8 @@ export type MessageType = (typeof MessageTypes)[keyof typeof MessageTypes]
 // Define schemas for each payload type
 export const Payloads = {
   [MessageTypes.APP_READY]: Schema.Struct({
-    _tag: Schema.Literal(MessageTypes.APP_READY)
+    _tag: Schema.Literal(MessageTypes.APP_READY),
+    timestamp: Schema.Number
   }).annotations({
     parseOptions: {
       onExcessProperty: 'error',
@@ -756,8 +757,8 @@ export const createMessage = <T extends MessageType>(
 // Generate message creator functions
 export const createAppReady = () =>
   createMessage(MessageTypes.APP_READY, {
-    _tag: MessageTypes.APP_READY
-  } as PayloadTypes[typeof MessageTypes.APP_READY])
+    timestamp: Date.now()
+  })
 
 export const createTaskStart = (taskId: string) =>
   createMessage(MessageTypes.TASK_START, {

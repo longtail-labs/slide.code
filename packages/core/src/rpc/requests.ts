@@ -15,6 +15,21 @@ export class ChatMessage extends Schema.Class<ChatMessage>('ChatMessage')({
   timestamp: Schema.Number
 }) {}
 
+// Define a project schema
+export class Project extends Schema.Class<Project>('Project')({
+  id: Schema.String,
+  name: Schema.String,
+  path: Schema.String
+}) {}
+
+// Define a task schema
+export class Task extends Schema.Class<Task>('Task')({
+  id: Schema.String,
+  title: Schema.String,
+  projectId: Schema.optional(Schema.String),
+  status: Schema.String
+}) {}
+
 // Consolidated RPC group for all Slide operations
 export class SlideRpcs extends RpcGroup.make(
   // User operations
@@ -43,5 +58,52 @@ export class SlideRpcs extends RpcGroup.make(
     payload: {
       interval: Schema.optional(Schema.Number)
     }
+  }),
+
+  // New RPCs
+  Rpc.make('GetFileDiff', {
+    success: Schema.String,
+    error: Schema.String,
+    payload: { path: Schema.String }
+  }),
+  Rpc.make('GetFileContent', {
+    success: Schema.String,
+    error: Schema.String,
+    payload: { path: Schema.String }
+  }),
+  Rpc.make('FileState', {
+    success: Schema.String,
+    error: Schema.String,
+    payload: { path: Schema.String }
+  }),
+  Rpc.make('ProjectFiles', {
+    success: Schema.String, // path
+    stream: true,
+    error: Schema.String,
+    payload: { projectId: Schema.String }
+  }),
+  Rpc.make('CreateTask', {
+    success: Task,
+    error: Schema.String,
+    payload: {
+      initialPrompt: Schema.String,
+      withWorkTree: Schema.Boolean,
+      projectId: Schema.optional(Schema.String)
+    }
+  }),
+  Rpc.make('WorkOnTask', {
+    success: Task,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
+  Rpc.make('ArchiveTask', {
+    success: Task,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
+  Rpc.make('AddProject', {
+    success: Project,
+    error: Schema.String,
+    payload: { path: Schema.String }
   })
 ) {}

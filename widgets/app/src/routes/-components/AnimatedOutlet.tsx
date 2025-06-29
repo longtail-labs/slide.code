@@ -14,7 +14,17 @@ export const AnimatedOutlet = forwardRef<HTMLDivElement>((_, ref) => {
   }
 
   return (
-    <motion.div ref={ref} className="flex h-full w-full overflow-hidden bg-background">
+    <motion.div
+      ref={ref}
+      className="flex h-full w-full overflow-hidden bg-background"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{
+        duration: 0.2,
+        ease: [0.4, 0.0, 0.2, 1] // Custom easing for smooth transitions
+      }}
+    >
       <RouterContext.Provider value={renderedContext.current}>
         <Outlet />
       </RouterContext.Provider>

@@ -1,2 +1,2 @@
 export * from './util'
-export * from './classNames.js'
+export * from './classNames'

@@ -3,7 +3,6 @@ import { BaseWindow, WebContentsView } from 'electron'
 import log from 'electron-log'
 import { listenTo } from '../utils/listenTo.js'
 import { createRequire } from 'node:module'
-import { ClaudeCodeService } from '../services/claude-code.service.js'
 import { PubSubClient } from '../services/pubsub.service.js'
 import { markAppReady, markAppError, AppReadyRefLive } from '../refs/ipc/app-ready.ref.js'
 import {
@@ -16,6 +15,8 @@ import { SlideRpcs } from '../rpc/requests.js'
 import { RpcClient } from '@effect/rpc/RpcClient'
 import { IPCRefService } from '../services/ipc-ref.service.js'
 import { SlideRuntime } from '../index.js'
+import { UserRef } from '../refs/ipc/user.ref.js'
+import { findClaudeCodeExecutable } from '../effects/findClaudeCodeExecutable.effect.js'
 
 const require = createRequire(import.meta.url)
 const resolve = require.resolve
@@ -31,8 +32,8 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
     log.info('[APP-FLOW] 🚀 Starting AppLaunchedFlow - Creating BaseWindow')
 
     // Get services for testing
-    const claudeCodeService = yield* ClaudeCodeService
     const pubsub = yield* PubSubClient
+    const userRef = yield* UserRef
 
     // Test Claude Code service configuration and detect executable
     yield* Effect.logInfo('🤖 Testing Claude Code service configuration')
@@ -43,9 +44,10 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
     log.info('[APP-FLOW] 🤖 Starting Claude executable detection')
 
     try {
-      const detectedPath = yield* claudeCodeService.detectAndConfigureClaudeExecutable()
+      const detectedPath = yield* findClaudeCodeExecutable
       if (detectedPath) {
         yield* Effect.logInfo(`🤖 Successfully detected Claude at: ${detectedPath}`)
+        yield* userRef.updateClaudeCodeExecutablePath(detectedPath)
         log.info(`[APP-FLOW] 🤖 Claude executable detected and configured: ${detectedPath}`)
       } else {
         yield* Effect.logWarning('🤖 Could not detect Claude executable automatically')
@@ -56,12 +58,13 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       log.error('[APP-FLOW] 🤖 Claude executable detection error:', detectionError)
     }
 
-    const currentConfig = yield* claudeCodeService.getConfig()
-    yield* Effect.logInfo('🤖 Current Claude Code config', currentConfig)
-    log.info('[APP-FLOW] 🤖 Claude Code working directory:', currentConfig.workingDirectory)
+    const userState = yield* userRef.ref.get()
+    const claudeConfig = userState.claudeCode
+    yield* Effect.logInfo('🤖 Current Claude Code config', claudeConfig)
+    log.info('[APP-FLOW] 🤖 Claude Code working directory:', userState.vibeDirectory)
     log.info(
       '[APP-FLOW] 🤖 Claude Code executable path:',
-      currentConfig.pathToClaudeCodeExecutable || 'not configured'
+      claudeConfig?.executablePath || 'not configured'
     )
 
     try {
@@ -81,7 +84,12 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
           preload: resolve('@slide.code/preload'),
           nodeIntegration: false,
           contextIsolation: true,
-          sandbox: false
+          webviewTag: true,
+          sandbox: false,
+          allowRunningInsecureContent: false,
+          webSecurity: true,
+          // Enable additional features for webview functionality
+          experimentalFeatures: true
         }
       })
 
@@ -114,10 +122,10 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       //   }, 2000)
       // })
 
-      setTimeout(() => {
-        console.log('TESTING COMMUNICATION SYSTEMS')
-        testCommunicationSystemsSimple()
-      }, 2000)
+      // setTimeout(() => {
+      //   console.log('TESTING COMMUNICATION SYSTEMS')
+      //   testCommunicationSystemsSimple()
+      // }, 2000)
 
       // Handle window closed event and cleanup WebContentsView
       baseWindow.on('closed', () => {

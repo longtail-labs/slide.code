@@ -1,6 +1,6 @@
 import { Effect, Fiber, Schedule } from 'effect'
 import { IPCRefService } from '../../services/ipc-ref.service.js'
-import { UpdateSchema, type UpdateState } from '../../state.js'
+import { UpdateSchema, type UpdateState } from '@slide.code/schema'
 import {
   getCurrentVersion,
   getLatestVersion,

@@ -2,6 +2,10 @@
   "name": "@slide.code/preload",
   "type": "module",
   "main": "./dist/index.mjs",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./webview-preload": "./dist/webview-preload.mjs"
+  },
   "scripts": {
     "build": "tsc && vite build",
     "test": "vitest run --passWithNoTests",

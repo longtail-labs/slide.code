@@ -1,6 +1,31 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRpc } from '../../rpc/provider.js'
 import { Stream, Chunk } from 'effect'
+import { useIPCRef } from '../../ipcref/hooks.js'
+import { UserStateSchema, type UserState } from '@slide.code/schema/state'
+
+/**
+ * Hook for accessing the user ref state
+ * Returns user state including Claude Code configuration
+ *
+ * @example
+ * const [userState, setUserState, updateUserState] = useUserRef()
+ *
+ * // Access Claude Code config
+ * console.log(userState?.claudeCode.executablePath)
+ *
+ * // Update Claude Code executable path
+ * updateUserState((state) => ({
+ *   ...state,
+ *   claudeCode: {
+ *     ...state.claudeCode,
+ *     executablePath: '/new/path/to/claude'
+ *   }
+ * }))
+ */
+export function useUserRef() {
+  return useIPCRef<UserState>('user', UserStateSchema)
+}
 
 /**
  * Hook for listing all users

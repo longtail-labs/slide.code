@@ -1,3 +1,6 @@
+import forms from '@tailwindcss/forms'
+import animate from 'tailwindcss-animate'
+
 export default {
   darkMode: ['class'],
 
@@ -16,7 +19,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        geist: ['Geist', 'sans-serif']
+        recursive: ['Recursive', 'monospace']
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -102,5 +105,5 @@ export default {
       }
     }
   },
-  plugins: [import('@tailwindcss/forms'), import('tailwindcss-animate')]
+  plugins: [forms, animate]
 }

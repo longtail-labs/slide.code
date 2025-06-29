@@ -26,8 +26,12 @@
     "generate:migration": "tsx src/migrations/migrationCli.ts"
   },
   "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.35",
     "@aptabase/electron": "^0.3.1",
     "@sentry/electron": "^6.8.0",
+    "@slide.code/convex": "*",
+    "@types/chokidar": "^1.7.5",
+    "chokidar": "^4.0.3",
     "electron-log": "^5.4.1",
     "electron-store": "^10.1.0",
     "emojilib": "^4.0.2",
@@ -36,6 +40,7 @@
     "parse-domain": "^8.2.2",
     "popmotion": "^11.0.5",
     "posthog-node": "^5.1.1",
+    "simple-git": "^3.28.0",
     "uuid": "^11.1.0",
     "which": "^5.0.0"
   },

@@ -1,7 +1,6 @@
 import React from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import ActionBarPresenter from './ActionBarPresenter'
-import type { Suggestion } from './ActionBarPresenter'
 
 const ActionBar = () => {
   const navigate = useNavigate()
@@ -24,21 +23,7 @@ const ActionBar = () => {
     })
   }
 
-  const suggestions: Suggestion[] = [
-    { icon: '🥕', text: 'Vegetables currently in season' },
-    { icon: '🧘', text: 'What is somatic healing?' },
-    { icon: '💻', text: 'New AI design tools' },
-    { icon: '🧢', text: 'Durable trail running hats' }
-  ]
-
-  return (
-    <ActionBarPresenter
-      onPlay={handlePlay}
-      suggestions={suggestions}
-      onSuggestionClick={(suggestion) => console.log('Suggestion clicked:', suggestion)}
-      isLoading={false}
-    />
-  )
+  return <ActionBarPresenter onPlay={handlePlay} suggestions={[]} isLoading={false} />
 }
 
 export default ActionBar

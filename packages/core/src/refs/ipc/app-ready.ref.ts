@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { IPCRefService } from '../../services/ipc-ref.service.js'
-import { AppReadySchema, type AppReadyState } from '../../state.js'
+import { AppReadySchema, type AppReadyState } from '@slide.code/schema'
 
 /**
  * Initial state for the AppReady ref

@@ -8,7 +8,7 @@
     "format": "npx prettier --check \"**/*.{js,mjs,cjs,ts,mts,cts,vue,json}\""
   },
   "dependencies": {
-    "@slide.code/core": "*"
-  },
-  "devDependencies": {}
+    "@slide.code/core": "*",
+    "fix-path": "^4.0.0"
+  }
 }

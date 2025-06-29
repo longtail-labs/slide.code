@@ -1,9 +1,10 @@
 import React, { Suspense } from 'react'
 import { useMatches, useMatch, createRootRouteWithContext } from '@tanstack/react-router'
 import { AnimatePresence } from 'framer-motion'
-import { TanStackRouterDevtools, TanStackQueryDevtools } from '../routes/-components/DevTools.js'
+import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import Layout from './-components/Layout'
-import { AnimatedOutlet } from './-components/AnimatedOutlet.js'
+import { AnimatedOutlet } from './-components/AnimatedOutlet'
 import type { QueryClient } from '@tanstack/react-query'
 
 interface RouterContext {
@@ -23,7 +24,7 @@ const RootComponent = () => {
       </AnimatePresence>
       <Suspense fallback={null}>
         <TanStackRouterDevtools />
-        <TanStackQueryDevtools />
+        <ReactQueryDevtools buttonPosition="bottom-right" />
       </Suspense>
     </Layout>
   )
