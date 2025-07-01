@@ -1,0 +1,305 @@
+// templui component card - version: main installed by templui v0.73.2
+package card
+
+import (
+	"server/ui/components/aspectratio"
+	"server/utils"
+)
+
+type MediaPosition string
+type MediaWidth string
+
+const (
+	MediaPositionTop    MediaPosition = "top"
+	MediaPositionBottom MediaPosition = "bottom"
+	MediaPositionLeft   MediaPosition = "left"
+	MediaPositionRight  MediaPosition = "right"
+)
+
+const (
+	MediaWidthAuto          MediaWidth = "auto"
+	MediaWidthFull          MediaWidth = "full"
+	MediaWidthHalf          MediaWidth = "half"
+	MediaWidthThird         MediaWidth = "third"
+	MediaWidthQuarter       MediaWidth = "quarter"
+	MediaWidthTwoThirds     MediaWidth = "two-thirds"
+	MediaWidthThreeQuarters MediaWidth = "three-quarters"
+)
+
+type Props struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+}
+
+type HeaderProps struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+}
+
+type TitleProps struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+}
+
+type DescriptionProps struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+}
+
+type ContentProps struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+}
+
+type FooterProps struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+}
+
+type HorizontalProps struct {
+	ID         string
+	Class      string
+	Attributes templ.Attributes
+}
+
+type MediaProps struct {
+	ID          string
+	Class       string
+	Attributes  templ.Attributes
+	Src         string
+	Alt         string
+	Position    MediaPosition
+	Width       MediaWidth
+	AspectRatio aspectratio.Ratio
+}
+
+templ Card(props ...Props) {
+	{{ var p Props }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	<div
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.TwMerge(
+				"w-full rounded-lg border bg-card text-card-foreground shadow-xs",
+				p.Class,
+			),
+		}
+		{ p.Attributes... }
+	>
+		{ children... }
+	</div>
+}
+
+templ Header(props ...HeaderProps) {
+	{{ var p HeaderProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	<div
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.TwMerge(
+				"flex flex-col space-y-1.5 p-6 pb-0",
+				p.Class,
+			),
+		}
+		{ p.Attributes... }
+	>
+		{ children... }
+	</div>
+}
+
+templ Title(props ...TitleProps) {
+	{{ var p TitleProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	<h3
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.TwMerge(
+				"text-lg font-semibold leading-none tracking-tight",
+				p.Class,
+			),
+		}
+		{ p.Attributes... }
+	>
+		{ children... }
+	</h3>
+}
+
+templ Description(props ...DescriptionProps) {
+	{{ var p DescriptionProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	<p
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.TwMerge(
+				"text-sm text-muted-foreground",
+				p.Class,
+			),
+		}
+		{ p.Attributes... }
+	>
+		{ children... }
+	</p>
+}
+
+templ Content(props ...ContentProps) {
+	{{ var p ContentProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	<div
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.TwMerge(
+				"p-6",
+				p.Class,
+			),
+		}
+		{ p.Attributes... }
+	>
+		{ children... }
+	</div>
+}
+
+templ Footer(props ...FooterProps) {
+	{{ var p FooterProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	<div
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.TwMerge(
+				"flex items-center p-6 pt-0",
+				p.Class,
+			),
+		}
+		{ p.Attributes... }
+	>
+		{ children... }
+	</div>
+}
+
+templ Horizontal(props ...HorizontalProps) {
+	{{ var p HorizontalProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	<div
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.TwMerge(
+				"flex overflow-hidden",
+				p.Class,
+			),
+		}
+		{ p.Attributes... }
+	>
+		{ children... }
+	</div>
+}
+
+templ Media(props ...MediaProps) {
+	{{ var p MediaProps }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	<div
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		class={
+			utils.TwMerge(
+				"overflow-hidden",
+				mediaPositionClasses(p.Position, p.Width),
+				p.Class,
+			),
+		}
+		{ p.Attributes... }
+	>
+		@aspectratio.AspectRatio(aspectratio.Props{
+			ID:    p.ID + "-aspect",
+			Ratio: p.AspectRatio,
+			Class: "h-full w-full",
+		}) {
+			<img
+				if p.Src != "" {
+					src={ p.Src }
+				}
+				if p.Alt != "" {
+					alt={ p.Alt }
+				}
+				class="h-full w-full object-cover"
+			/>
+		}
+	</div>
+}
+
+func mediaPositionClasses(position MediaPosition, width MediaWidth) string {
+	var positionClass string
+
+	switch position {
+	case MediaPositionTop:
+		return "w-full rounded-t-lg"
+	case MediaPositionBottom:
+		return "w-full rounded-b-lg"
+	case MediaPositionLeft:
+		positionClass = "shrink-0 rounded-l-lg"
+	case MediaPositionRight:
+		positionClass = "shrink-0 rounded-r-lg"
+	default:
+		positionClass = ""
+	}
+
+	if position == MediaPositionLeft || position == MediaPositionRight {
+		return positionClass + " " + widthClass(width)
+	}
+
+	return positionClass
+}
+
+func widthClass(width MediaWidth) string {
+	switch width {
+	case MediaWidthFull:
+		return "w-full"
+	case MediaWidthHalf:
+		return "w-1/2"
+	case MediaWidthThird:
+		return "w-1/3"
+	case MediaWidthQuarter:
+		return "w-1/4"
+	case MediaWidthTwoThirds:
+		return "w-2/3"
+	case MediaWidthThreeQuarters:
+		return "w-3/4"
+	default:
+		return "w-1/3"
+	}
+}

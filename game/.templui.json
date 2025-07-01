@@ -1,0 +1,6 @@
+{
+  "componentsDir": "ui/components",
+  "utilsDir": "utils",
+  "moduleName": "server",
+  "jsDir": "assets/js"
+}
