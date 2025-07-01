@@ -5,6 +5,7 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import Layout from './-components/Layout'
 import { AnimatedOutlet } from './-components/AnimatedOutlet'
+import { GameWebviewManager } from '@/components/GameWebviewManager'
 import type { QueryClient } from '@tanstack/react-query'
 
 interface RouterContext {
@@ -18,15 +19,17 @@ const RootComponent = () => {
   const nextMatch = matches[nextMatchIndex]
 
   return (
-    <Layout>
-      <AnimatePresence mode="wait">
-        <AnimatedOutlet key={nextMatch?.id || match.id} />
-      </AnimatePresence>
-      <Suspense fallback={null}>
-        <TanStackRouterDevtools />
-        <ReactQueryDevtools buttonPosition="bottom-right" />
-      </Suspense>
-    </Layout>
+    <GameWebviewManager>
+      <Layout>
+        <AnimatePresence mode="wait">
+          <AnimatedOutlet key={nextMatch?.id || match.id} />
+        </AnimatePresence>
+        <Suspense fallback={null}>
+          <TanStackRouterDevtools />
+          <ReactQueryDevtools buttonPosition="bottom-right" />
+        </Suspense>
+      </Layout>
+    </GameWebviewManager>
   )
 }
 

@@ -4,6 +4,8 @@ import os from 'node:os'
 import fs from 'node:fs'
 import log from 'electron-log'
 
+import { getVibeDir } from '@slide.code/shared'
+
 export class VibeDirectoryCreationError extends Error {
   readonly _tag = 'VibeDirectoryCreationError'
 
@@ -15,7 +17,7 @@ export class VibeDirectoryCreationError extends Error {
 
 export const createVibeDir = Effect.tryPromise({
   try: async () => {
-    const vibeDir = path.join(os.homedir(), 'Documents', 'vibe-dir')
+    const vibeDir = getVibeDir()
     if (!fs.existsSync(vibeDir)) {
       log.info('[createVibeDir] Creating vibe-dir at:', vibeDir)
       await fs.promises.mkdir(vibeDir, { recursive: true })

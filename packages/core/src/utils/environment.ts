@@ -2,7 +2,7 @@ import { app } from 'electron'
 import { exec } from 'child_process'
 import { readFile } from 'fs'
 import { platform, release, totalmem, freemem, cpus, uptime } from 'os'
-import { isBeta, isProd, isDev } from '../utils/index.js'
+import { isBeta, isProd, isDev } from '@slide.code/shared'
 
 /**
  * Interface defining the environment information to be collected

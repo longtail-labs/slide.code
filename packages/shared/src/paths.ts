@@ -1,6 +1,12 @@
 import { app } from 'electron'
 import path from 'path'
 import { platform } from 'os'
+import os from 'node:os'
+// import { logger } from './logger/logger-main.js'
+
+// Add TypeScript declaration for the Vite-injected global
+
+// const pathsLogger = logger.createScoped('Paths')
 
 // Directly access the global variable defined by Vite
 // console.log('WTF PATHS', database.url)
@@ -10,8 +16,10 @@ import { platform } from 'os'
 
 export function getDrizzleFolder(): string {
   if (isPackaged()) {
+    // pathsLogger.info('Drizzle folder packaged:', process.resourcesPath)
     return path.join(process.resourcesPath, 'drizzle')
   } else {
+    // pathsLogger.info('Drizzle folder dev:', process.cwd())
     return path.join(process.cwd(), 'drizzle')
   }
 }
@@ -72,6 +80,15 @@ export function isPackaged(): boolean {
 }
 
 export function getDatabasePath(inMemory?: boolean): string {
+  // pathsLogger.info('[Paths]', {
+  //   inMemory,
+  //   isProd: isProd(),
+  //   isDev: isDev(),
+  //   mode: import.meta.env?.MODE,
+  //   resourcesPath: process.resourcesPath,
+  //   isPackaged: isPackaged()
+  // })
+
   if (inMemory) {
     return ':memory:'
   }
@@ -79,16 +96,36 @@ export function getDatabasePath(inMemory?: boolean): string {
   // Always use userData path in production/packaged mode
   if (isPackaged()) {
     const userDataPath = app.getPath('userData')
+    // pathsLogger.info('Production: using userData path:', userDataPath)
     return path.join(userDataPath, 'slide')
   }
 
   // In development, use the configured path or fallback
   if (import.meta.env?.VITE_DATABASE_URL) {
     const devPath = path.join(process.cwd(), import.meta.env.VITE_DATABASE_URL)
+    // pathsLogger.info('Development: using configured path:', devPath)
     return devPath
   }
 
   // Fallback path
   const fallbackPath = path.join(app.getPath('userData'), 'slide')
+  // pathsLogger.info('Using fallback path:', fallbackPath)
   return fallbackPath
+}
+
+export function getVibeDir(): string {
+  return path.join(os.homedir(), 'Documents', 'vibe-dir')
+}
+
+export function getDefaultProjectsDir(): string {
+  return path.join(getVibeDir(), 'projects')
+}
+
+export const paths = {
+  data: (): string => {
+    if (isPackaged()) {
+      return app.getPath('userData')
+    }
+    return path.join(process.cwd(), '.database')
+  }
 }

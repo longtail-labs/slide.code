@@ -9,14 +9,13 @@ import {
   createSetWindowTitle,
   createGetAppInfo,
   createShowUpdateDialog,
-  createInvalidateQuery
+  createInvalidateQuery,
+  createTaskStart
 } from '@slide.code/schema/messages'
-import { SlideRpcs } from '../rpc/requests.js'
-import { RpcClient } from '@effect/rpc/RpcClient'
-import { IPCRefService } from '../services/ipc-ref.service.js'
-import { SlideRuntime } from '../index.js'
 import { UserRef } from '../refs/ipc/user.ref.js'
 import { findClaudeCodeExecutable } from '../effects/findClaudeCodeExecutable.effect.js'
+import { DatabaseService, DatabaseServiceLive } from '../services/database.service.js'
+import type { TaskInsert, ChatMessageInsert } from '@slide.code/schema'
 
 const require = createRequire(import.meta.url)
 const resolve = require.resolve
@@ -30,6 +29,72 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
   Effect.gen(function* () {
     yield* Effect.logInfo('🚀 Starting AppLaunchedFlow - Creating BaseWindow', message._tag)
     log.info('[APP-FLOW] 🚀 Starting AppLaunchedFlow - Creating BaseWindow')
+
+    // Test Database Service
+    yield* Effect.logInfo('🗄️ Testing DatabaseService')
+    log.info('[APP-FLOW] 🗄️ Testing DatabaseService')
+    try {
+      const dbService = yield* DatabaseService
+
+      const projects = yield* dbService.getProjects()
+
+      console.log('!!!PROJECTS', projects)
+
+      // Clear existing data for clean test
+      // yield* Effect.sync(() => tasks.removeMany({}))
+      // yield* Effect.sync(() => chatMessages.removeMany({}))
+      log.info('[APP-FLOW] 🗄️ Cleared existing tasks and messages')
+
+      // Create test task using helper function
+      // const testTask: TaskInsert = {
+      //   name: 'Test Task from AppLaunchedFlow',
+      //   status: 'working'
+      // }
+
+      // Use the helper function for type-safe insertion
+      // const insertedTask = yield* Effect.sync(() => insertTask(tasks, testTask))
+      // console.log('insertedTask', insertedTask)
+      // log.info('[APP-FLOW] 🗄️ Inserted new task:', JSON.stringify(insertedTask, null, 2))
+
+      // // Test inserting a chat message
+      // if (insertedTask && insertedTask.id) {
+      //   const testMessage: ChatMessageInsert = {
+      //     taskId: insertedTask.id,
+      //     event: {
+      //       type: 'user',
+      //       message: 'Hello, database!',
+      //       parent_tool_use_id: null,
+      //       session_id: 'session-test-123'
+      //     }
+      //   }
+
+      //   const insertedMessage = yield* Effect.sync(() =>
+      //     insertChatMessage(chatMessages, testMessage)
+      //   )
+      //   log.info('[APP-FLOW] 🗄️ Inserted new message:', JSON.stringify(insertedMessage, null, 2))
+
+      //   // Test ORM relationship
+      //   yield* Effect.sleep(Duration.millis(100)) // Give a moment for reactivity if needed
+      //   const taskFromDb = yield* Effect.sync(() => tasks.findOne({ id: insertedTask.id }))
+
+      //   if (taskFromDb) {
+      //     log.info(`[APP-FLOW] 🗄️ Found task by ID: ${taskFromDb.name}`)
+      //     const messagesForTask = yield* Effect.sync(() => taskFromDb.getMessages().fetch())
+      //     log.info(
+      //       `[APP-FLOW] 🗄️ Fetched ${messagesForTask.length} message(s) via ORM method:`,
+      //       JSON.stringify(messagesForTask, null, 2)
+      //     )
+      //   } else {
+      //     log.warn('[APP-FLOW] 🗄️ Could not find the task back from the DB.')
+      //   }
+      // }
+
+      yield* Effect.logInfo('🗄️ Database test completed successfully')
+      log.info('[APP-FLOW] 🗄️ Database test completed successfully')
+    } catch (dbError) {
+      yield* Effect.logError('🗄️ Error during database test', dbError)
+      log.error('[APP-FLOW] 🗄️ Database test error:', dbError)
+    }
 
     // Get services for testing
     const pubsub = yield* PubSubClient
@@ -101,7 +166,18 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       webContentsView.setBounds({ x: 0, y: 0, width, height })
 
       // Load the app HTML file using the WebContentsView
-      yield* Effect.promise(() => webContentsView.webContents.loadFile(resolve('@slide.code/app')))
+      yield* Effect.if(process.env.MODE === 'development' && !!process.env.VITE_DEV_SERVER_URL, {
+        onTrue: () =>
+          Effect.promise(() =>
+            webContentsView.webContents.loadURL(process.env.VITE_DEV_SERVER_URL!)
+          ).pipe(Effect.tap(() => Effect.logInfo('Loaded from Vite Dev Server'))),
+        onFalse: () =>
+          Effect.promise(() =>
+            webContentsView.webContents.loadFile(resolve('@slide.code/app'))
+          ).pipe(Effect.tap(() => Effect.logInfo('Loaded from file')))
+      })
+
+      // webContentsView.webContents.loadFile(resolve('@slide.code/app'))
 
       webContentsView.webContents.openDevTools()
 
@@ -110,6 +186,55 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       console.log('MARKING APP READY')
 
       yield* markAppReady
+
+      // Test TaskStartListener after app is ready
+      // yield* Effect.fork(
+      //   Effect.gen(function* () {
+      //     console.log('[APP-FLOW] ⏳ Waiting 3 seconds before testing TaskStartListener')
+      //     yield* Effect.sleep(Duration.millis(3000))
+
+      //     console.log('[APP-FLOW] 🧪 Testing TaskStartListener with fake task creation')
+      //     yield* Effect.logInfo('[APP-FLOW] 🧪 Testing TaskStartListener with fake task creation')
+
+      //     try {
+      //       const dbService = yield* DatabaseService
+
+      //       // Get the specific project
+      //       const projectId = '697ccaf7-d07b-416a-b824-680bca4a45a9'
+      //       console.log('[APP-FLOW] 🔧 Getting project by ID:', projectId)
+
+      //       const project = yield* dbService.getProject(projectId)
+      //       if (!project) {
+      //         console.error('[APP-FLOW] ❌ Project not found:', projectId)
+      //         return
+      //       }
+
+      //       console.log('[APP-FLOW] ✅ Project found:', project.name, 'at path:', project.path)
+
+      //       // Create a test task
+      //       const taskData = {
+      //         name: 'Create a sample typescript script to add two numbers',
+      //         projectId: projectId,
+      //         useWorktree: false,
+      //         status: 'working' as const,
+      //         branch: undefined
+      //       }
+
+      //       console.log('[APP-FLOW] 🔧 Creating test task:', taskData)
+      //       const createdTask = yield* dbService.createTask(taskData)
+      //       console.log('[APP-FLOW] ✅ Test task created:', createdTask.id)
+
+      //       // Publish TASK_START message
+      //       const taskStartMessage = createTaskStart(createdTask.id)
+      //       console.log('[APP-FLOW] 📢 Publishing TASK_START message for task:', createdTask.id)
+      //       yield* pubsub.publish(taskStartMessage)
+      //       console.log('[APP-FLOW] ✅ TASK_START message published successfully')
+      //     } catch (error) {
+      //       console.error('[APP-FLOW] ❌ Error testing TaskStartListener:', error)
+      //       yield* Effect.logError('[APP-FLOW] ❌ Error testing TaskStartListener', error)
+      //     }
+      //   })
+      // )
 
       // Show the window once the content has finished loading
       // webContentsView.webContents.once('did-finish-load', () => {

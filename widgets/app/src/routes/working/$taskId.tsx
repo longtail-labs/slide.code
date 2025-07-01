@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { WorkingScreen } from '@/screens'
 import { zodValidator } from '@tanstack/zod-adapter'
-
 import { z } from 'zod'
-import { taskQueryOptions } from '@/screens/Working/taskQueryOptions'
+import { getTaskWithMessages, markTaskAccessed } from '@slide.code/clients'
+import { TaskQueryKeys } from '@slide.code/schema'
 
 // Define the search params schema
 export const workingSearchSchema = z.object({
@@ -20,8 +20,16 @@ export const Route = createFileRoute('/working/$taskId')({
   // },
   loader: async ({ params: { taskId }, context: { queryClient } }) => {
     console.log('Task id in loader', taskId)
-    // await queryClient.prefetchQuery(getTask)
-    queryClient.ensureQueryData(taskQueryOptions(taskId))
+    await markTaskAccessed(taskId)
+
+    // Prefetch the task with messages using the same query key and function as useTaskWithMessages
+    const taskWithMessagesQueryKey = [...TaskQueryKeys.detail(taskId), 'withMessages']
+
+    await queryClient.prefetchQuery({
+      queryKey: taskWithMessagesQueryKey,
+      queryFn: () => getTaskWithMessages(taskId),
+      staleTime: 1000 * 30 // 30 seconds
+    })
   },
   component: WorkingScreen,
   validateSearch: zodValidator(workingSearchSchema)

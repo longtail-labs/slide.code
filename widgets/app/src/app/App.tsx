@@ -7,7 +7,6 @@ import { createRouter, createMemoryHistory } from '@tanstack/react-router'
 import { routeTree } from '@/routeTree.gen'
 import { Spinner } from '@/routes/-components/Spinner'
 import { RpcProvider } from '@slide.code/clients'
-import BottomBar from '@/components/BottomBar/BottomBar'
 import { Toaster } from '@/components/ui/sonner'
 
 console.log('AppGTG')
@@ -53,7 +52,6 @@ export function App() {
             <div>
               <RouterProvider router={router} />
             </div>
-            {/* <BottomBar /> */}
           </SidebarProvider>
         </QueryClientProvider>
       </RpcProvider>

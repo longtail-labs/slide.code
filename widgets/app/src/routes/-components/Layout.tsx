@@ -9,7 +9,7 @@ const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="flex flex-col h-screen w-screen bg-background">
       <div style={{ '-webkit-app-region': 'drag' } as React.CSSProperties} className="h-8 w-full" />
-      <div className="flex grow overflow-hidden">{children}</div>
+      <main className="flex-1 overflow-y-auto">{children}</main>
       <BottomBar />
     </div>
   )

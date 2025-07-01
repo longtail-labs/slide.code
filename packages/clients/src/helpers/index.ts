@@ -13,3 +13,8 @@ export * from './update/index.js'
 
 // User-related helpers
 export * from './users/index.js'
+
+export * from './tasks/index.js'
+
+// Project-related helpers
+export * from './projects/index.js'

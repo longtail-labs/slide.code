@@ -1,4 +1,4 @@
-import { getDatabasePath } from './utils/index.js'
+import { getDatabasePath, getDrizzleFolder } from '@slide.code/shared'
 import { Config, ConfigProvider } from 'effect'
 import { app } from 'electron'
 
@@ -89,3 +89,19 @@ export const loggerConfig = Config.map(
 )
 // Add more configs as needed
 // export const otherConfig = ...
+
+/**
+ * Database configuration using Effect's Config system
+ */
+export const databaseConfig = Config.map(
+  Config.all([
+    Config.option(Config.string('DATABASE_PATH')),
+    Config.boolean('DATABASE_IN_MEMORY').pipe(Config.withDefault(false))
+  ]),
+  ([databasePathOption, inMemory]) => ({
+    dataDir:
+      databasePathOption._tag === 'Some' ? databasePathOption.value : getDatabasePath(inMemory),
+    migrationsDir: getDrizzleFolder(),
+    inMemory
+  })
+)

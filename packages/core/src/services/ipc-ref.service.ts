@@ -83,7 +83,6 @@ export const makeIPCRef = <A>(
     const broadcastToRenderers = (value: A) =>
       Effect.sync(() => {
         try {
-          console.log('[IPCRef] Broadcasting to renderers', refId, value)
           const serialized = serialize(value)
 
           webContents.getAllWebContents().forEach((contents) => {
@@ -104,7 +103,6 @@ export const makeIPCRef = <A>(
             const storeKey = persistOptions.key || `ipcref-${refId}`
             const serialized = serialize(value)
             ElectronStoreUtil.set(storeKey, serialized)
-            console.log(`[IPCRef] Persisted ${refId} to storage`)
           } catch (error) {
             console.error(`Error persisting IPCRef ${refId}:`, error)
           }
@@ -192,7 +190,6 @@ export class IPCRefService extends Effect.Service<IPCRefService>()('IPCRefServic
     function setupIpcHandlers() {
       // Handle registration of renderer processes
       ipcMain.on(REF_CHANNELS.REGISTER_REF, (event, message: IPCRefMessage) => {
-        console.log(`IPCRef register request for: ${message.refId}`)
         const ref = refs.get(message.refId)
         if (ref) {
           // Register this WebContents
@@ -220,7 +217,6 @@ export class IPCRefService extends Effect.Service<IPCRefService>()('IPCRefServic
 
       // Handle value updates from renderer
       ipcMain.on(REF_CHANNELS.UPDATE_REF, (_, message: IPCRefMessage) => {
-        console.log('[IPCRefService] Updating IPCRef', message)
         if (!message.refId || message.value === undefined) return
 
         const ref = refs.get(message.refId)

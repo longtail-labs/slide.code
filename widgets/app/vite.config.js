@@ -6,8 +6,8 @@ import react from '@vitejs/plugin-react'
 import { join } from 'path'
 import { chrome } from '../../.electron-vendors.cache.json'
 import tsconfigPaths from 'vite-tsconfig-paths' // Import the plugin
-import webfontDownload from 'vite-plugin-webfont-dl'
 import tailwindcss from '@tailwindcss/vite'
+import webfontDownload from 'vite-plugin-webfont-dl'
 
 const PACKAGE_ROOT = __dirname
 const PROJECT_ROOT = join(PACKAGE_ROOT, '../..')
@@ -31,7 +31,7 @@ export default defineConfig({
     // include: ['@polka/db', '@polka/db/schema']
     // exclude: ['@polka/db']
   },
-  base: './',
+  base: '/',
   server: {
     fs: {
       strict: true
@@ -57,6 +57,8 @@ export default defineConfig({
     // }),
     // TanStackRouterVite({ autoCodeSplitting: true }),
     tanstackRouter({
+      routesDirectory: join(PACKAGE_ROOT, 'src/routes'),
+      generatedRouteTree: join(PACKAGE_ROOT, 'src/routeTree.gen.ts'),
       target: 'react',
       autoCodeSplitting: true
     }),

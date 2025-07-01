@@ -28,6 +28,7 @@ import {
   IconPhoto,
   IconGitBranch
 } from '@tabler/icons-react'
+import type { Project } from '@slide.code/schema'
 
 export interface Suggestion {
   icon: string
@@ -35,41 +36,40 @@ export interface Suggestion {
 }
 
 export interface ActionBarProps {
-  onPlay: (value: string) => void
+  onPlay: (details: { prompt: string; projectId: string; useWorktree?: boolean }) => void
   onSuggestionClick?: (suggestion: Suggestion) => void
+  onCreateProject: (projectName: string) => Promise<Project>
+  onSelectExistingProject?: () => Promise<string | null>
   suggestions: Suggestion[]
+  projects: Project[]
   isLoading?: boolean
+  isCreatingProject?: boolean
+  isAddingProject?: boolean
 }
 
-const mockProjects = [
-  {
-    id: 'hitslop',
-    name: 'longtail-labs/hitSlop',
-    path: '/Users/jordan/Documents/startups/longtailLABS/SlideCode'
-  },
-  {
-    id: 'clarifyui',
-    name: 'longtail-labs/ClarifyUI',
-    path: '/Users/jordan/Documents/projects/ClarifyUI'
-  },
-  { id: 'xwidget', name: 'longtail-labs/xwidget', path: '/Users/jordan/Documents/projects/xwidget' }
-]
-
-const getProjectName = (project: (typeof mockProjects)[0]) => {
-  if (project.name.includes('/')) {
-    return project.name.split('/')[1]
-  }
-  return project.path.split('/').pop() || project.name
-}
-
-const ActionBarPresenter = ({ onPlay, isLoading = false }: ActionBarProps) => {
+const ActionBarPresenter = ({
+  onPlay,
+  onCreateProject,
+  onSelectExistingProject,
+  projects,
+  isLoading = false,
+  isCreatingProject = false,
+  isAddingProject = false
+}: ActionBarProps) => {
   const [value, setValue] = useState('')
-  const [selectedProject, setSelectedProject] = useState('new')
+  const [selectedProject, setSelectedProject] = useState('')
   const [attachmentType, setAttachmentType] = useState<'images' | 'project' | null>(null)
   const [newProjectName, setNewProjectName] = useState('')
   const [isNewProjectDialogOpen, setIsNewProjectDialogOpen] = useState(false)
   const [newWorktreeBranch, setNewWorktreeBranch] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Set default project when projects load
+  useEffect(() => {
+    if (projects.length > 0 && !selectedProject) {
+      setSelectedProject(projects[0].id)
+    }
+  }, [projects, selectedProject])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -88,8 +88,14 @@ const ActionBarPresenter = ({ onPlay, isLoading = false }: ActionBarProps) => {
   }
 
   const handlePlay = () => {
-    if (value.trim()) {
-      onPlay(value)
+    if (value.trim() && selectedProject) {
+      const prompt = value.trim()
+
+      onPlay({
+        prompt,
+        projectId: selectedProject,
+        useWorktree: newWorktreeBranch
+      })
     }
   }
 
@@ -99,27 +105,40 @@ const ActionBarPresenter = ({ onPlay, isLoading = false }: ActionBarProps) => {
     setAttachmentType('images')
   }
 
-  const handleSelectProject = (projectId: string) => {
+  const handleSelectProject = async (projectId: string) => {
     if (projectId === 'new') {
       setIsNewProjectDialogOpen(true)
     } else if (projectId === 'select') {
-      // This would open a folder picker
-      console.log('Opening folder picker...')
+      // Open folder picker
+      if (onSelectExistingProject) {
+        const newProjectId = await onSelectExistingProject()
+        if (newProjectId) {
+          setSelectedProject(newProjectId)
+          setAttachmentType('project')
+        }
+      }
     } else {
       setSelectedProject(projectId)
       setAttachmentType('project')
     }
   }
 
-  const handleCreateNewProject = () => {
+  const handleCreateNewProject = async () => {
     if (newProjectName.trim()) {
-      console.log('Creating new project:', newProjectName)
-      setNewProjectName('')
-      setIsNewProjectDialogOpen(false)
+      try {
+        const newProject = await onCreateProject(newProjectName.trim())
+        if (newProject) {
+          setSelectedProject(newProject.id)
+        }
+        setNewProjectName('')
+        setIsNewProjectDialogOpen(false)
+      } catch (error) {
+        console.error('Failed to create project:', error)
+      }
     }
   }
 
-  const selectedProjectData = mockProjects.find((p) => p.id === selectedProject)
+  const selectedProjectData = projects.find((p) => p.id === selectedProject)
 
   return (
     <div className="relative border rounded-xl shadow-sm overflow-hidden">
@@ -142,35 +161,39 @@ const ActionBarPresenter = ({ onPlay, isLoading = false }: ActionBarProps) => {
               <div className="flex items-center gap-2">
                 <IconFolder className="h-4 w-4" />
                 {selectedProjectData ? (
-                  <span className="font-medium truncate">
-                    {getProjectName(selectedProjectData)}
-                  </span>
+                  <span className="font-medium truncate">{selectedProjectData.name}</span>
                 ) : (
                   <SelectValue placeholder="Select project" />
                 )}
               </div>
             </SelectTrigger>
-            <SelectContent className="w-[280px]">
-              {mockProjects.map((project) => (
-                <SelectItem key={project.id} value={project.id} className="cursor-pointer">
-                  <div className="flex flex-col">
-                    <span className="font-medium">{getProjectName(project)}</span>
-                    <span className="text-xs text-gray-500 truncate">{project.name}</span>
+            <SelectContent className="w-[280px] max-h-[300px]">
+              <div className="max-h-[200px] overflow-y-auto">
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id} className="cursor-pointer">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium">{project.name}</span>
+                      <span className="text-[10px] text-gray-400 truncate leading-tight">
+                        {project.path}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </div>
+              <div className="border-t bg-gray-50/50 sticky bottom-0">
+                <SelectItem value="select" className="cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <IconFolder className="h-4 w-4" />
+                    <span className="font-medium">Select New Project</span>
                   </div>
                 </SelectItem>
-              ))}
-              <SelectItem value="select" className="cursor-pointer border-t mt-1 pt-2">
-                <div className="flex items-center gap-2">
-                  <IconFolder className="h-4 w-4" />
-                  <span className="font-medium">Select New Project</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="new" className="cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">+</span>
-                  <span className="font-medium">Create New Project</span>
-                </div>
-              </SelectItem>
+                <SelectItem value="new" className="cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">+</span>
+                    <span className="font-medium">Create New Project</span>
+                  </div>
+                </SelectItem>
+              </div>
             </SelectContent>
           </Select>
 
@@ -254,8 +277,11 @@ const ActionBarPresenter = ({ onPlay, isLoading = false }: ActionBarProps) => {
             <Button variant="outline" onClick={() => setIsNewProjectDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateNewProject} disabled={!newProjectName.trim()}>
-              Create Project
+            <Button
+              onClick={handleCreateNewProject}
+              disabled={!newProjectName.trim() || isCreatingProject}
+            >
+              {isCreatingProject ? 'Creating...' : 'Create Project'}
             </Button>
           </DialogFooter>
         </DialogContent>

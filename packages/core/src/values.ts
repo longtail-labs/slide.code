@@ -31,4 +31,4 @@ export const RENDERER_NAMES = {
   NOTE: 'note'
 }
 
-export const APP_PROTOCOL = 'slide'
+export const APP_PROTOCOL = 'slide-code'

@@ -7,6 +7,7 @@ export const MessageTypes = {
 
   // Task events
   TASK_START: 'TaskStart',
+  TASK_CONTINUE: 'TaskContinue',
   TASK_SWITCHED: 'TaskSwitched',
   TASK_EXITED: 'TaskExited',
   TASK_COMPLETED: 'TaskCompleted',
@@ -142,6 +143,14 @@ export const Payloads = {
       onExcessProperty: 'error',
       exact: true
     }
+  }),
+
+  [MessageTypes.TASK_CONTINUE]: Schema.Struct({
+    _tag: Schema.Literal(MessageTypes.TASK_CONTINUE),
+    taskId: Schema.String,
+    prompt: Schema.String,
+    sessionId: Schema.optional(Schema.String),
+    timestamp: Schema.Number
   }),
 
   [MessageTypes.TASK_SWITCHED]: Schema.Struct({
@@ -619,6 +628,7 @@ export type TypedMessage<T extends MessageType> = T extends keyof typeof Payload
 // Define specific message types
 export type AppReadyMessage = TypedMessage<typeof MessageTypes.APP_READY>
 export type TaskStartMessage = TypedMessage<typeof MessageTypes.TASK_START>
+export type TaskContinueMessage = TypedMessage<typeof MessageTypes.TASK_CONTINUE>
 export type TaskSwitchedMessage = TypedMessage<typeof MessageTypes.TASK_SWITCHED>
 export type TaskExitedMessage = TypedMessage<typeof MessageTypes.TASK_EXITED>
 export type TaskCompletedMessage = TypedMessage<typeof MessageTypes.TASK_COMPLETED>
@@ -764,7 +774,15 @@ export const createTaskStart = (taskId: string) =>
   createMessage(MessageTypes.TASK_START, {
     taskId,
     timestamp: Date.now()
-  } as Omit<TypedMessage<typeof MessageTypes.TASK_START>, '_tag'>)
+  })
+
+export const createTaskContinue = (taskId: string, prompt: string, sessionId?: string) =>
+  createMessage(MessageTypes.TASK_CONTINUE, {
+    taskId,
+    prompt,
+    sessionId,
+    timestamp: Date.now()
+  })
 
 export const createTaskSwitched = (fromTaskId: string, toTaskId: string) =>
   createMessage(MessageTypes.TASK_SWITCHED, {

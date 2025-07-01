@@ -1,6 +1,7 @@
-import { build } from 'vite'
+import { build, createServer } from 'vite'
 import electronPath from 'electron'
 import { spawn } from 'child_process'
+import path from 'path'
 
 /**
  * Development mode flag
@@ -10,14 +11,14 @@ process.env.NODE_ENV = mode
 process.env.MODE = mode
 
 /** @type {import('vite').LogLevel} */
-const logLevel = 'debug'
+const logLevel = 'info'
 
 /**
  * Setup watcher for `main` package
  * On file changed it totally re-launch electron app.
  */
 function setupMainPackageWatcher() {
-  /** @type {ChildProcess | null} */
+  /** @type {import('child_process').ChildProcess | null} */
   let electronApp = null
 
   return build({
@@ -39,23 +40,8 @@ function setupMainPackageWatcher() {
           if (electronApp !== null) {
             electronApp.removeListener('exit', process.exit)
 
-            // Force kill after timeout if graceful shutdown doesn't work
-            const killTimeout = setTimeout(() => {
-              console.log('Forcing electron app termination')
-              try {
-                electronApp.kill('SIGKILL')
-              } catch (e) {
-                console.log('Error killing electron process:', e)
-              }
-            }, 1000)
-
-            // Try graceful shutdown first
-            electronApp.on('exit', () => {
-              clearTimeout(killTimeout)
-              electronApp = null
-            })
-
             electronApp.kill('SIGINT')
+            electronApp = null
           }
 
           // Short delay before starting new process to allow for cleanup
@@ -75,9 +61,30 @@ function setupMainPackageWatcher() {
   })
 }
 
+async function setupRendererPackageWatcher() {
+  try {
+    const server = await createServer({
+      mode,
+      logLevel,
+      configFile: 'widgets/app/vite.config.js',
+      root: path.resolve(process.cwd(), 'widgets/app')
+    })
+
+    await server.listen()
+    const url = server.resolvedUrls.local[0]
+    process.env.VITE_DEV_SERVER_URL = url
+    console.log(`[watch.js] Renderer server running at ${url}`)
+  } catch (error) {
+    console.error(`Failed to start renderer watcher:`, error)
+    process.exit(1)
+  }
+}
+
 // Main execution sequence
 async function main() {
   try {
+    console.log('Starting development environment...')
+    await setupRendererPackageWatcher()
     console.log('Starting development environment for apps/main...')
     await setupMainPackageWatcher()
     console.log('Development environment ready!')

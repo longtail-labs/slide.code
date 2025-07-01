@@ -28,17 +28,6 @@ const DEFAULT_SSR_PROTOCOLS: CustomScheme[] = [
       corsEnabled: true,
       stream: true
     }
-  },
-  {
-    scheme: 'file',
-    privileges: {
-      standard: true,
-      secure: true,
-      supportFetchAPI: true,
-      corsEnabled: true,
-      stream: true,
-      bypassCSP: true
-    }
   }
 ]
 

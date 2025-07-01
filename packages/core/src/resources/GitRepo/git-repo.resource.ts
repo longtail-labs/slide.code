@@ -42,6 +42,7 @@ export interface GitRepo {
   readonly status: () => Effect.Effect<StatusResult, GitRepoError>
   readonly diff: (options?: string[]) => Effect.Effect<string, GitRepoError>
   readonly diffStaged: () => Effect.Effect<string, GitRepoError>
+  readonly gitDiffIncludingUntracked: () => Effect.Effect<string, GitRepoError>
   readonly diffSummary: (options?: string[]) => Effect.Effect<DiffResult, GitRepoError>
   readonly commit: (message: string, files?: string[]) => Effect.Effect<void, GitRepoError>
   readonly add: (files: string | string[]) => Effect.Effect<void, GitRepoError>
@@ -229,6 +230,35 @@ export const makeGitRepo = (
         catch: (error) => new GitRepoError(`Failed to get staged diff: ${error}`)
       })
 
+    const gitDiffIncludingUntracked = () =>
+      Effect.tryPromise({
+        try: async () => {
+          // Get the normal diff for tracked files
+          const trackedDiff = await workingGit.diff()
+
+          // Get status to find untracked files
+          const status = await workingGit.status()
+          const untrackedFiles = status.not_added || []
+
+          // Get diff for each untracked file using --no-index
+          const untrackedDiffs = await Promise.all(
+            untrackedFiles.map(async (file) => {
+              try {
+                const diff = await workingGit.diff(['--no-index', '/dev/null', file])
+                return diff
+              } catch {
+                // Ignore errors for files that might have been deleted/moved
+                return ''
+              }
+            })
+          )
+
+          // Combine all diffs into one string
+          return [trackedDiff, ...untrackedDiffs].filter(Boolean).join('\n')
+        },
+        catch: (error) => new GitRepoError(`Failed to get complete diff: ${error}`)
+      })
+
     const diffSummary = (options?: string[]) =>
       Effect.tryPromise({
         try: () => workingGit.diffSummary(options || []),
@@ -297,6 +327,7 @@ export const makeGitRepo = (
       status,
       diff,
       diffStaged,
+      gitDiffIncludingUntracked,
       diffSummary,
       commit,
       add,

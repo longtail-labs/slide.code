@@ -24,7 +24,7 @@
     "make:beta": "cross-env NODE_ENV=production MODE=beta bash ./build-modules.sh",
     "format": "npx prettier --write \"**/*.{js,mjs,cjs,ts,mts,cts,vue,json}\"",
     "lint": "npm run lint --workspaces",
-    "start:app": "cross-env PRODUCTION=true NODE_ENV=production MODE=development node _scripts/watch.js",
+    "start:app": "cross-env NODE_ENV=development MODE=development node _scripts/watch.js",
     "start:backend": "cd packages/backend && encore run",
     "start": "npx concurrently -n \"app,backend\" \"npm run start:app\" \"npm run start:backend\"",
     "preview": "vite preview",
@@ -70,6 +70,9 @@
   },
   "dependencies": {
     "@slide.code/main": "*",
+    "dotenv": "^16.4.5",
+    "@libsql/client": "^0.15.9",
+    "drizzle-orm": "^0.44.2",
     "effect": "^3.16.9"
   },
   "devDependencies": {
@@ -88,7 +91,7 @@
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.0",
     "cross-env": "^7.0.3",
-    "drizzle-kit": "^0.31.2",
+    "drizzle-kit": "^0.31.4",
     "electron": "^36.5.0",
     "eslint": "^9.29.0",
     "eslint-plugin-react": "^7.37.5",

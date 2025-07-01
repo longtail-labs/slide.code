@@ -11,6 +11,7 @@ import {
   Context
 } from 'effect'
 import { query, type SDKMessage } from '@anthropic-ai/claude-code'
+import { SdkMessage } from '@slide.code/schema'
 import {
   ClaudeCodeConfig,
   ClaudeCodeError,
@@ -22,7 +23,7 @@ export type AgentStatus = 'idle' | 'running' | 'finished' | 'error' | 'cancelled
 
 export interface ClaudeCodeAgentState {
   status: AgentStatus
-  messages: SDKMessage[]
+  messages: SdkMessage[]
   error: string | null
 }
 
@@ -32,11 +33,20 @@ const initialState: ClaudeCodeAgentState = {
   error: null
 }
 
+/**
+ * Convert SDKMessage from the Claude Code SDK to our internal SdkMessage schema type
+ */
+const convertSDKMessageToSchemaMessage = (sdkMessage: SDKMessage): SdkMessage => {
+  // The types are structurally compatible, so we can cast directly
+  // This ensures type safety at the boundary between SDK and our schema
+  return sdkMessage as SdkMessage
+}
+
 export interface ClaudeCodeAgent {
   readonly state: SubscriptionRef.SubscriptionRef<ClaudeCodeAgentState>
   readonly changes: Stream.Stream<ClaudeCodeAgentState>
-  readonly messages: Stream.Stream<SDKMessage>
-  readonly run: (prompt: string) => Effect.Effect<void, ClaudeCodeError>
+  readonly messages: Stream.Stream<SdkMessage>
+  readonly run: (prompt: string, sessionId?: string) => Effect.Effect<void, ClaudeCodeError>
   readonly cancel: () => Effect.Effect<void>
 }
 
@@ -49,14 +59,30 @@ export const makeClaudeCodeAgent = (
   initialConfig: Partial<ClaudeCodeConfig>
 ): Effect.Effect<ClaudeCodeAgent, never, Scope.Scope> =>
   Effect.gen(function* () {
+    yield* Effect.logInfo('[ClaudeCodeAgent] Starting makeClaudeCodeAgent')
+
     const config = { ...defaultClaudeCodeConfig, ...initialConfig }
-    const state = yield* SubscriptionRef.make(initialState)
-    const messagesPubSub = yield* PubSub.unbounded<SDKMessage>()
-    const abortControllerRef = yield* Ref.make<AbortController | null>(null)
 
     yield* Effect.logInfo(`[ClaudeCodeAgent] Creating agent with config: ${JSON.stringify(config)}`)
 
-    const run = (prompt: string) =>
+    // Validate required configuration
+    if (!config.workingDirectory) {
+      return yield* Effect.die(new Error('workingDirectory is required'))
+    }
+
+    if (!config.pathToClaudeCodeExecutable) {
+      return yield* Effect.die(new Error('pathToClaudeCodeExecutable is required'))
+    }
+
+    yield* Effect.logInfo('[ClaudeCodeAgent] Configuration validated, creating resources')
+
+    const state = yield* SubscriptionRef.make(initialState)
+    const messagesPubSub = yield* PubSub.unbounded<SdkMessage>()
+    const abortControllerRef = yield* Ref.make<AbortController | null>(null)
+
+    yield* Effect.logInfo('[ClaudeCodeAgent] Resources created successfully')
+
+    const run = (prompt: string, sessionId?: string) =>
       Effect.gen(function* () {
         const currentStatus = yield* SubscriptionRef.get(state).pipe(Effect.map((s) => s.status))
         if (currentStatus === 'running') {
@@ -77,7 +103,9 @@ export const makeClaudeCodeAgent = (
             permissionMode: config.permissionMode,
             model: config.model,
             fallbackModel: config.fallbackModel,
-            pathToClaudeCodeExecutable: config.pathToClaudeCodeExecutable
+            pathToClaudeCodeExecutable: config.pathToClaudeCodeExecutable,
+            // Add session continuation support
+            ...(sessionId && { resume: sessionId })
           }
         }
 
@@ -95,16 +123,23 @@ export const makeClaudeCodeAgent = (
 
         // Process each message through the stream pipeline
         const processStream = queryStream.pipe(
-          Stream.tap((message: SDKMessage) =>
-            PubSub.publish(messagesPubSub, message).pipe(
+          Stream.tap((sdkMessage: SDKMessage) => {
+            // Convert SDK message to our schema message
+            console.log('PRESDK MESSAGE', sdkMessage)
+            const schemaMessage = convertSDKMessageToSchemaMessage(sdkMessage)
+            console.log(
+              '[ClaudeCodeAgent] 🔧 Converted SDK message to schema message:',
+              schemaMessage
+            )
+            return PubSub.publish(messagesPubSub, schemaMessage).pipe(
               Effect.zipRight(
                 SubscriptionRef.update(state, (s) => ({
                   ...s,
-                  messages: [...s.messages, message]
+                  messages: [...s.messages, schemaMessage]
                 }))
               )
             )
-          ),
+          }),
           Stream.runDrain
         )
 

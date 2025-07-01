@@ -15,9 +15,17 @@ import {
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { useNavigate, useLocation, useRouter, useCanGoBack } from '@tanstack/react-router'
+import {
+  useNavigate,
+  useLocation,
+  useRouter,
+  useCanGoBack,
+  useParams
+} from '@tanstack/react-router'
+import { useGameWebview } from '@/components/GameWebviewManager'
+import { useTaskWithMessages, useTaskDiff, useProjects } from '@slide.code/clients'
 
 interface SomaFmPlaylist {
   url: string
@@ -47,6 +55,37 @@ const BottomBar = () => {
   const location = useLocation()
   const router = useRouter()
   const canGoBack = useCanGoBack()
+  const { isScriptActive } = useGameWebview()
+
+  // Get current task data if on working route
+  const isWorking = location.pathname.startsWith('/working/')
+  const taskIdFromPath = isWorking ? location.pathname.split('/').pop() : null
+  const { data: task } = useTaskWithMessages(taskIdFromPath || '')
+  const { data: diffText } = useTaskDiff(taskIdFromPath || '')
+  const { data: projects } = useProjects()
+
+  // Calculate diff stats from the actual diff text
+  const diffStats = useMemo(() => {
+    if (!diffText) return { additions: 0, deletions: 0 }
+
+    const lines = diffText.split('\n')
+    let additions = 0
+    let deletions = 0
+
+    for (const line of lines) {
+      if (line.startsWith('+') && !line.startsWith('+++')) {
+        additions++
+      } else if (line.startsWith('-') && !line.startsWith('---')) {
+        deletions++
+      }
+    }
+
+    return { additions, deletions }
+  }, [diffText])
+
+  // Get project info
+  const currentProject = task && projects ? projects.find((p) => p.id === task.projectId) : null
+
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [channels, setChannels] = useState<SomaFmChannel[]>([])
@@ -298,12 +337,11 @@ const BottomBar = () => {
     navigate({ to: '/game' })
   }
 
-  const isWorking = location.pathname.startsWith('/working/')
   const isPlanning = location.pathname === '/'
   const isGame = location.pathname === '/game'
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-gray-50 border-t border-gray-200 flex items-center px-3 z-50 font-recursive">
+    <div className="bottom-0 left-0 right-0 h-20 bg-gray-50 border-t border-gray-200 flex items-center px-3 z-50 font-recursive">
       <div className="flex items-center gap-x-3 flex-1">
         {/* Left side - conditional rendering */}
         {isWorking ? (
@@ -314,13 +352,17 @@ const BottomBar = () => {
 
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-x-3">
-                <span className="font-bold text-gray-800 truncate">longtail-labs/hitSlop</span>
+                <span className="font-bold text-gray-800 truncate">
+                  {currentProject ? currentProject.name : 'Loading...'}
+                </span>
                 <div className="flex items-center space-x-2 text-sm font-mono">
-                  <span className="text-emerald-600 font-medium">+157</span>
-                  <span className="text-red-500 font-medium">-2</span>
+                  <span className="text-emerald-600 font-medium">+{diffStats.additions}</span>
+                  <span className="text-red-500 font-medium">-{diffStats.deletions}</span>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 truncate">Add drag-and-drop image support</p>
+              <p className="text-sm text-gray-600 truncate">
+                {task ? task.name : 'Loading task...'}
+              </p>
             </div>
           </>
         ) : isGame ? (
@@ -348,7 +390,7 @@ const BottomBar = () => {
       {isWorking && (
         <div className="flex-none px-4">
           <div className="flex items-center gap-x-2">
-            {isLoading ? (
+            {task?.status === 'running' ? (
               <div className="flex items-center gap-x-2 text-sm text-gray-500">
                 <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></div>
                 <span>Working...</span>
@@ -356,7 +398,9 @@ const BottomBar = () => {
             ) : (
               <div className="flex items-center gap-x-1">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span className="text-sm text-green-700 font-medium">Open</span>
+                <span className="text-sm text-green-700 font-medium">
+                  {task?.status === 'completed' ? 'Completed' : 'Open'}
+                </span>
               </div>
             )}
             <Button variant="outline" size="sm" className="h-8">
@@ -394,8 +438,11 @@ const BottomBar = () => {
 
       <div className="flex items-center gap-x-2 flex-1 justify-end">
         {/* Right side */}
-        <Button variant="outline" size="sm" className="h-8" onClick={handleGameClick}>
+        <Button variant="outline" size="sm" className="h-8 relative" onClick={handleGameClick}>
           <Gamepad2 className="h-4 w-4" />
+          {isScriptActive && !isGame && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+          )}
         </Button>
 
         <div className="flex items-center gap-x-1 bg-white border border-gray-200 rounded-md p-1">

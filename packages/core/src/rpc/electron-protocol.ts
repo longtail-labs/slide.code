@@ -218,6 +218,13 @@ export const makeElectronProtocol = Effect.gen(function* () {
             }
           }
 
+          // Force serialization to prevent cloning errors with complex objects.
+          // This converts class instances and other non-plain objects into serializable data.
+          // const serializedResponse = JSON.parse(JSON.stringify(response))
+
+          // console.log('SENDING MESSAGE', response, serializedResponse)
+          console.log('SENDING MESSAGE', response)
+
           // Send the response through the MessagePort
           port.postMessage(response)
           return Effect.void

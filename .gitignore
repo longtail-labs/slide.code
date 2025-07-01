@@ -45,3 +45,5 @@ database
 .vault_secret_key
 
 uploads
+
+.database

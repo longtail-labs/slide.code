@@ -30,6 +30,18 @@
       "import": "./src/requests.ts",
       "require": "./src/requests.ts",
       "default": "./src/requests.ts"
+    },
+    "./database": {
+      "types": "./src/database.ts",
+      "import": "./src/database.ts",
+      "require": "./src/database.ts",
+      "default": "./src/database.ts"
+    },
+    "./collections": {
+      "types": "./src/collections.ts",
+      "import": "./src/collections.ts",
+      "require": "./src/collections.ts",
+      "default": "./src/collections.ts"
     }
   },
   "scripts": {
@@ -40,6 +52,10 @@
     "format": "npx prettier --check \"**/*.{js,mjs,cjs,ts,mts,cts,vue,json}\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.55.1",
+    "@signaldb/core": "^1.6.0",
+    "@signaldb/fs": "^1.0.1",
+    "drizzle-orm": "^0.44.2",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

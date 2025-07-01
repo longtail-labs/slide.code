@@ -9,7 +9,8 @@ import {
   PostHogService,
   PubSubClient,
   GlobalShortcutService,
-  TaskService
+  TaskService,
+  DatabaseService
 } from './services/index.js'
 
 import { PubSubSubscribers } from './subscribers/index.js'
@@ -53,7 +54,8 @@ const BaseServicesLayer = Layer.mergeAll(
   MenuService.Default,
   ElectronEventService.Default,
   RefsLayer,
-  TaskService.Default
+  TaskService.Default,
+  DatabaseService.Default
   // GlobalShortcutService.Default
 )
 

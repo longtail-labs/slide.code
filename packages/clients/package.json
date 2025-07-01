@@ -43,6 +43,7 @@
     }
   },
   "scripts": {
+    "build": "tsc",
     "lint": "eslint --fix",
     "watch": "tsc --watch",
     "typecheck": "tsc --noEmit"

@@ -20,7 +20,8 @@ import {
   GlobalShortcutService,
   registerDeepLinkingProtocol,
   createVibeDir,
-  UserRef
+  UserRef,
+  DatabaseService
 } from '@slide.code/core'
 import { Effect, Fiber, Match, Stream } from 'effect'
 import path from 'path'
@@ -35,7 +36,7 @@ let eventHandlerFiber: Fiber.RuntimeFiber<any, any> | null = null
 const program = Effect.gen(function* () {
   try {
     // First register SSR protocols before app is ready and any service initialization
-    yield* registerSSRProtocols
+    // yield* registerSSRProtocols
 
     // Register custom protocol for deep linking
     yield* registerDeepLinkingProtocol
@@ -49,6 +50,8 @@ const program = Effect.gen(function* () {
     const posthog = yield* PostHogService // Get the PostHog service
     const sentry = yield* SentryService
     const userRef = yield* UserRef
+    const dbService = yield* DatabaseService
+
     // const globalShortcutService = yield* GlobalShortcutService
     yield* Effect.logInfo('Initializing ElectronEventService')
     yield* electronEventService.initialize
@@ -65,6 +68,7 @@ const program = Effect.gen(function* () {
     const updateConfig = yield* config.updateConfig
     const posthogConfig = yield* config.posthogConfig
     const sentryConfig = yield* config.sentryConfig
+    const dbConfig = yield* config.databaseConfig
 
     // Only initialize Sentry if DSN is available
     if (sentryConfig.dsn) {
@@ -104,6 +108,16 @@ const program = Effect.gen(function* () {
       })
     } else {
       yield* Effect.logInfo('Skipping UpdateService initialization - no URL provided')
+    }
+
+    try {
+      // Initialize and run migrations in one step
+      yield* dbService.initAndMigrate(dbConfig)
+      // logger.info('Database initialized and migrated successfully')
+    } catch (error) {
+      // logger.error('Database initialization failed:', error)
+      // actions.initFail(`Failed to initialize database. Please restart the application. ${error}`)
+      return yield* Effect.fail(error)
     }
 
     // Handle app events using the ElectronEventService

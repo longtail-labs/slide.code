@@ -8,6 +8,5 @@
  */
 
 // Export RPC components
-export * from './requests.js'
 export * from './handlers.js'
 export * from './electron-protocol.js'

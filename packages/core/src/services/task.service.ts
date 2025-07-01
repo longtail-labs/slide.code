@@ -66,7 +66,7 @@ import {
 } from '../resources/ClaudeCodeAgent/claude-code-agent.resource.js'
 import { UserRef } from '../refs/ipc/user.ref.js'
 import { ClaudeCodeConfig } from '../types/claude-code.types.js'
-import { SDKMessage } from '@anthropic-ai/claude-code'
+import { SdkMessage } from '@slide.code/schema'
 import path from 'node:path'
 import fs from 'node:fs'
 
@@ -89,7 +89,7 @@ export interface TaskInfo {
 export type AgentEvent = {
   taskId: string
   type: 'message' | 'status'
-  data: SDKMessage | AgentStatus
+  data: SdkMessage | AgentStatus
 }
 
 export class TaskService extends Effect.Service<TaskService>()('TaskService', {
