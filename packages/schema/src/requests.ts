@@ -184,6 +184,43 @@ export class SlideRpcs extends RpcGroup.make(
       options: Schema.optional(Schema.Array(Schema.String))
     }
   }),
+  // Task operations
+  Rpc.make('ArchiveTask', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
+  Rpc.make('UnarchiveTask', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
+  Rpc.make('CommitTask', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
+  // External application operations
+  Rpc.make('OpenInGitHubDesktop', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
+  Rpc.make('OpenInFinder', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
+  Rpc.make('OpenInTerminal', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
+  Rpc.make('OpenInEditor', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
   // Rpc.make('ListProjects', {
   //   success: Schema.Array(Project),
   //   error: Schema.String

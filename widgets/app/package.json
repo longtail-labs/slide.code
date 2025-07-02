@@ -47,6 +47,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.44.2",
+    "file-selector": "^2.1.2",
     "framer-motion": "^12.18.1",
     "hotkeys-js": "^3.13.14",
     "lexorank": "^1.0.5",

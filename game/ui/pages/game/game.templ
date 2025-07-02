@@ -91,11 +91,30 @@ templ GamePage(player *types.Player, gameState *types.GameState) {
             place: (x, y) => {
               console.log(`🤖 Bot action: place at (${x}, ${y})`);
               const state = game.getState(); // Use the SDK's own state
+              console.log(`🤖 Current player state: bits=${state.player?.bits}, roundState=${state.roundState}`);
               if (state.player && state.player.bits > 0 && state.roundState === 'In Progress') {
+                // Extract userId from URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const userId = urlParams.get('userId');
+                
+                // Include userId in the action request
+                const actionUrl = userId 
+                  ? `/action?x=${x}&y=${y}&userId=${encodeURIComponent(userId)}`
+                  : `/action?x=${x}&y=${y}`;
+                
                 // Use the standard 'fetch' API to make the POST request
-                fetch(`/action?x=${x}&y=${y}`, {
+                fetch(actionUrl, {
                   method: 'POST',
-                }).catch(err => console.error('🤖 Action failed:', err));
+                }).then(response => {
+                  if (!response.ok) {
+                    // Log more detailed error information
+                    return response.text().then(errorText => {
+                      console.error(`🤖 Action failed: ${response.status} ${response.statusText} - ${errorText}`);
+                      console.error(`🤖 Player state: bits=${state.player.bits}, roundState=${state.roundState}`);
+                    });
+                  }
+                  console.log(`🤖 Action successful: placed bit at (${x}, ${y})`);
+                }).catch(err => console.error('🤖 Network error:', err));
               } else {
                 console.log('🤖 Bot action skipped: conditions not met.');
               }
@@ -228,7 +247,7 @@ templ GridComponent(gameState *types.GameState) {
 		id="game-grid"
 		class="game-grid"
 		style={ fmt.Sprintf("grid-template-columns: repeat(%d, 1fr); grid-template-rows: repeat(%d, 1fr); width: min(70vw, 70vh * %d / %d); height: min(70vh, 70vw * %d / %d);", types.GridWidth, types.GridHeight, types.GridWidth, types.GridHeight, types.GridHeight, types.GridWidth) }
-		data-on-click={ fmt.Sprintf(`(evt.target.dataset.x && evt.target.dataset.y && $bits > 0 && $roundState === '%s') && @post('/action?x=' + evt.target.dataset.x + '&y=' + evt.target.dataset.y)`, types.InProgress) }
+		data-on-click={ fmt.Sprintf(`(evt.target.dataset.x && evt.target.dataset.y && $bits > 0 && $roundState === '%s') && @post('/action?x=' + evt.target.dataset.x + '&y=' + evt.target.dataset.y + '&userId=' + (new URLSearchParams(window.location.search).get('userId') || ''))`, types.InProgress) }
 	>
 		for y := 0; y < types.GridHeight; y++ {
 			for x := 0; x < types.GridWidth; x++ {

@@ -37,10 +37,10 @@ export function CenterPanel({ task }: CenterPanelProps) {
             <DiffViewer diffText={diffText as string} isLoading={isDiffLoading} error={diffError} />
           </TabsContent>
           <TabsContent value="preview" className="flex-1">
-            <PlaceholderView title="Preview" />
+            <PlaceholderView title="Preview capabilities coming soon" />
           </TabsContent>
           <TabsContent value="terminal" className="flex-1">
-            <PlaceholderView title="Terminal" />
+            <PlaceholderView title="Terminal capabilities coming soon" />
           </TabsContent>
         </Tabs>
       </ResizablePanel>

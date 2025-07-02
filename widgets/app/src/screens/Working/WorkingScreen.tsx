@@ -1,11 +1,11 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useParams } from '@tanstack/react-router'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { ChatSidebar } from './components/ChatSidebar'
 import { CenterPanel } from './components/CenterPanel'
 import { PromptBox } from './components/PromptBox'
-import { useTaskWithMessages } from '@slide.code/clients'
+import { useTaskWithMessages, useUserRef } from '@slide.code/clients'
 import type { TaskWithMessages } from '@slide.code/schema'
 
 // Context for sharing working screen state
@@ -44,8 +44,29 @@ const WorkingScreenProvider = ({
 const WorkingScreen = () => {
   const { taskId } = useParams({ from: '/working/$taskId' })
   const { data: task, isLoading, error } = useTaskWithMessages(taskId)
+  const [userState, setUserState, updateUserState] = useUserRef()
 
   console.log('WorkingScreen TASK', task, isLoading, error)
+
+  // Set current task ID when component mounts and clear when unmounts
+  useEffect(() => {
+    if (taskId) {
+      console.log('[WorkingScreen] Setting current task ID:', taskId)
+      updateUserState((state) => ({
+        ...state,
+        currentTaskId: taskId
+      }))
+    }
+
+    // Cleanup function to clear current task ID when component unmounts
+    return () => {
+      console.log('[WorkingScreen] Clearing current task ID')
+      updateUserState((state) => ({
+        ...state,
+        currentTaskId: null
+      }))
+    }
+  }, [taskId, updateUserState])
 
   // Animation variants
   const variants = {

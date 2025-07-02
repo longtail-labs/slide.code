@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { motion, type Variants } from 'framer-motion'
 import { useNavigate } from '@tanstack/react-router'
 import { ActionBar } from '@/modules'
@@ -19,8 +19,8 @@ import {
   SheetTrigger
 } from '@/components/ui/sheet'
 import { useTaskToasts } from '@/hooks'
-import { useUserRef, useTasks, groupTasksByStatus } from '@slide.code/clients'
-import type { Task as RpcTask } from '@slide.code/schema'
+import { useUserRef, useTasks, useArchivedTasks, groupTasksByStatus } from '@slide.code/clients'
+import type { TaskWithProject as RpcTask } from '@slide.code/schema'
 import { getRelativeTimeString } from '@/lib/util'
 
 type Task = {
@@ -28,6 +28,8 @@ type Task = {
   title: string
   date: string
   projectId: string
+  projectName: string
+  projectPath: string
   branch?: string
   stats: { additions: number; deletions: number } | null
   status: string | null
@@ -39,6 +41,8 @@ const mapRpcTaskToViewTask = (rpcTask: RpcTask): Task => ({
   title: rpcTask.name,
   date: getRelativeTimeString(new Date(rpcTask.updatedAt)),
   projectId: rpcTask.projectId,
+  projectName: rpcTask.project?.name ?? 'Unknown Project',
+  projectPath: rpcTask.project?.path ?? '',
   branch: rpcTask.branch ?? undefined,
   stats: rpcTask.stats
     ? { additions: rpcTask.stats.additions, deletions: rpcTask.stats.deletions }
@@ -131,9 +135,12 @@ const TaskListItem = ({
           {task.title}
         </span>
         <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
-          <span>{task.date}</span>
-          <span className="text-gray-300">·</span>
-          <span className="font-medium">{task.projectId}</span>
+          <div className="flex flex-col">
+            <span className="font-medium">{task.projectName}</span>
+            <span className="text-xs text-gray-400 font-mono truncate max-w-xs">
+              {task.projectPath}
+            </span>
+          </div>
           {task.branch && (
             <>
               <span className="text-gray-300">·</span>
@@ -145,7 +152,17 @@ const TaskListItem = ({
         </div>
       </div>
       <div className="flex items-center space-x-4 ml-4">
-        {task.status && <StatusBadge status={task.status} color={task.statusColor as any} />}
+        {task.status && (
+          <div className="flex flex-col items-end">
+            <StatusBadge status={task.status} color={task.statusColor as any} />
+            <span className="text-xs text-gray-400 mt-1">{task.date}</span>
+          </div>
+        )}
+        {!task.status && (
+          <div className="flex flex-col items-end">
+            <span className="text-xs text-gray-400">{task.date}</span>
+          </div>
+        )}
         {(task.stats || isWorking) && (
           <div className="flex flex-col items-end">
             {task.stats && (
@@ -179,6 +196,7 @@ const TaskListItem = ({
 }
 
 const TaskGroup = ({ title, tasks }: { title: string; tasks: Task[] }) => {
+  console.log(`TASK GROUP "${title}":`, tasks, `Length: ${tasks.length}`)
   if (tasks.length === 0) return null
   const isWaiting = title === 'Pending' || title === 'Needs Review'
   const isWorking = title === 'Running'
@@ -198,44 +216,53 @@ const TaskGroup = ({ title, tasks }: { title: string; tasks: Task[] }) => {
 
 const PlanningScreen: React.FC = () => {
   const { showTaskCompletedToast, showTaskFailedToast, showTaskStartedToast } = useTaskToasts()
-  const { data: rpcTasks, isLoading, error } = useTasks()
+  const { data: rpcTasks, isLoading, error } = useTasks(false) // Don't include archived
+  const {
+    data: archivedTasks,
+    isLoading: isLoadingArchived,
+    error: archivedError
+  } = useArchivedTasks()
 
   console.log('RPCTASKS', rpcTasks)
+  console.log('ARCHIVED TASKS', archivedTasks)
 
   const { pending, running, completed, failed, stopped, needsReview } = useMemo(() => {
     const tasks = Array.isArray(rpcTasks) ? rpcTasks : []
     const grouped = groupTasksByStatus(tasks)
 
-    // Filter tasks that need review from completed tasks based on updatedAt vs lastAccessedAt
-    const completedTasks = (grouped.completed || []).map(mapRpcTaskToViewTask)
-    const needsReviewTasks = completedTasks.filter((task) => {
-      const rpcTask = rpcTasks?.find((rpcTask) => rpcTask.id === task.id)
-      if (!rpcTask || !rpcTask.lastAccessedAt) {
-        // If never accessed, it needs review
-        return true
-      }
-      // If updated after last access, it needs review
-      return new Date(rpcTask.updatedAt) >= new Date(rpcTask.lastAccessedAt)
-    })
-    const completedNoReview = completedTasks.filter((task) => {
-      const rpcTask = rpcTasks?.find((rpcTask) => rpcTask.id === task.id)
-      if (!rpcTask || !rpcTask.lastAccessedAt) {
-        // If never accessed, it needs review (so not in completedNoReview)
-        return false
-      }
-      // If not updated after last access, it doesn't need review
-      return new Date(rpcTask.updatedAt) < new Date(rpcTask.lastAccessedAt)
-    })
+    // Filter tasks that need review using the needsReview field
+    const allTasks = Object.values(grouped).flat()
+    const needsReviewTasks = allTasks.filter((task) => task.needsReview).map(mapRpcTaskToViewTask)
+
+    // Remove tasks that need review from their original status groups
+    const filterNeedsReview = (tasks: any[]) =>
+      tasks.filter((task) => !task.needsReview).map(mapRpcTaskToViewTask)
 
     return {
-      pending: (grouped.pending || []).map(mapRpcTaskToViewTask),
-      running: (grouped.running || []).map(mapRpcTaskToViewTask),
-      completed: completedNoReview,
-      failed: (grouped.failed || []).map(mapRpcTaskToViewTask),
-      stopped: (grouped.stopped || []).map(mapRpcTaskToViewTask),
+      pending: filterNeedsReview(grouped.pending || []),
+      running: filterNeedsReview(grouped.running || []),
+      completed: filterNeedsReview(grouped.completed || []),
+      failed: filterNeedsReview(grouped.failed || []),
+      stopped: filterNeedsReview(grouped.stopped || []),
       needsReview: needsReviewTasks
     }
   }, [rpcTasks])
+
+  const archivedTasksForView = useMemo(() => {
+    const mapped = Array.isArray(archivedTasks) ? archivedTasks.map(mapRpcTaskToViewTask) : []
+    console.log('ARCHIVED TASKS FOR VIEW:', mapped)
+    return mapped
+  }, [archivedTasks])
+
+  // Debug archive tab state
+  useEffect(() => {
+    console.log('ARCHIVE TAB RENDER STATE:', {
+      isLoadingArchived,
+      archivedError,
+      archivedTasksForView: archivedTasksForView.length,
+      archivedTasks: archivedTasks?.length
+    })
+  }, [isLoadingArchived, archivedError, archivedTasksForView, archivedTasks])
 
   // User ref for accessing Claude Code configuration
   const [userState, setUserState, updateUserState] = useUserRef()
@@ -270,24 +297,6 @@ const PlanningScreen: React.FC = () => {
       }))
       setIsSettingsOpen(false)
     }
-  }
-
-  // Demo function to test toast functionality
-  const handleDemoToasts = () => {
-    const sampleTask = {
-      title: 'Add drag-and-drop image support',
-      date: 'May 18',
-      repo: 'longtail-labs/hitSlop',
-      branch: 'codex/add-drag-and-drop-image-support-hscfs4',
-      stats: { additions: 157, deletions: 2 },
-      status: 'Open',
-      statusColor: 'green' as const
-    }
-
-    // Show different types of toasts
-    setTimeout(() => showTaskStartedToast(sampleTask), 500)
-    setTimeout(() => showTaskCompletedToast(sampleTask), 3000)
-    setTimeout(() => showTaskFailedToast(sampleTask, 'Network timeout'), 6000)
   }
 
   return (
@@ -369,58 +378,34 @@ const PlanningScreen: React.FC = () => {
           </SheetFooter>
         </SheetContent>
       </Sheet>
-
-      {/* Sticky Header with Input and Tabs */}
-      <header className="sticky top-0 z-10 bg-white">
-        <div className="max-w-4xl mx-auto w-full px-8 py-8">
-          <div className="flex items-center justify-center mb-8">
-            <div className="text-center">
-              <h1 className="text-4xl text-gray-900 vibe-time-header">Vibe time?</h1>
+      <Tabs defaultValue="tasks" className="w-full flex flex-col">
+        {/* Sticky Header with Input and Tabs */}
+        <header className="sticky top-0 z-10 bg-white">
+          <div className="max-w-4xl mx-auto w-full px-8 py-8">
+            <div className="flex items-center justify-center mb-8">
+              <div className="text-center">
+                <h1 className="text-4xl text-gray-900 vibe-time-header">Vibe time?</h1>
+              </div>
             </div>
-          </div>
 
-          <div className="mb-6">
-            <ActionBar />
-          </div>
+            <div className="mb-6">
+              <ActionBar />
+            </div>
 
-          {/* Demo Toast Button */}
-          <div className="mb-4 flex justify-center gap-2">
-            <Button onClick={handleDemoToasts} variant="outline" size="sm">
-              Demo Task Toasts
-            </Button>
-            <Button
-              onClick={() =>
-                showTaskCompletedToast({
-                  title: 'Update README with new features',
-                  date: 'May 22',
-                  repo: 'longtail-labs/hitSlop',
-                  stats: { additions: 29, deletions: 31 }
-                })
-              }
-              variant="outline"
-              size="sm"
-            >
-              Show Completed
-            </Button>
-          </div>
-
-          <div className="flex justify-start">
-            <Tabs defaultValue="tasks">
+            <div className="flex justify-start">
               <div className="p-2">
                 <TabsList>
                   <TabsTrigger value="tasks">Tasks</TabsTrigger>
                   <TabsTrigger value="archive">Archive</TabsTrigger>
                 </TabsList>
               </div>
-            </Tabs>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Scrollable Content */}
-      <main className="flex-1 overflow-y-auto pb-24">
-        <div className="max-w-4xl mx-auto w-full">
-          <Tabs defaultValue="tasks" className="w-full">
+        {/* Scrollable Content */}
+        <main className="flex-1 overflow-y-auto pb-24">
+          <div className="max-w-4xl mx-auto w-full">
             <TabsContent value="tasks" className="mt-0">
               {isLoading && <div className="px-4 py-8 text-center">Loading tasks...</div>}
               {error && (
@@ -433,6 +418,7 @@ const PlanningScreen: React.FC = () => {
                   <TaskGroup title="Needs Review" tasks={needsReview} />
                   <TaskGroup title="Running" tasks={running} />
                   <TaskGroup title="Pending" tasks={pending} />
+                  <TaskGroup title="Completed" tasks={completed} />
                   <TaskGroup title="Failed" tasks={failed} />
                   <TaskGroup title="Stopped" tasks={stopped} />
                 </div>
@@ -440,15 +426,28 @@ const PlanningScreen: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="archive" className="mt-0">
-              <div className="space-y-2 px-4 pt-4">
-                {completed.map((task, index) => (
-                  <TaskListItem key={index} task={task} />
-                ))}
-              </div>
+              {isLoadingArchived && (
+                <div className="px-4 py-8 text-center">Loading archived tasks...</div>
+              )}
+              {archivedError && (
+                <div className="px-4 py-8 text-center text-red-500">
+                  Error loading archived tasks: {archivedError.message}
+                </div>
+              )}
+              {!isLoadingArchived && !archivedError && (
+                <div className="space-y-0">
+                  <TaskGroup title="Archived" tasks={archivedTasksForView} />
+                  {archivedTasksForView.length === 0 && (
+                    <div className="px-4 py-8 text-center text-gray-500">
+                      No archived tasks found.
+                    </div>
+                  )}
+                </div>
+              )}
             </TabsContent>
-          </Tabs>
-        </div>
-      </main>
+          </div>
+        </main>
+      </Tabs>
     </motion.div>
   )
 }

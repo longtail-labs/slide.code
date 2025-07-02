@@ -31,7 +31,7 @@ export default defineConfig({
     // include: ['@polka/db', '@polka/db/schema']
     // exclude: ['@polka/db']
   },
-  base: '/',
+  base: './',
   server: {
     fs: {
       strict: true

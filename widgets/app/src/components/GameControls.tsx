@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
 export const GameControls: React.FC = () => {
-  const { webviewRef, isScriptActive, loadScript, botScript, setBotScript } = useGameWebview()
+  const { webviewRef, isScriptActive, loadScript, reloadWebview, botScript, setBotScript } =
+    useGameWebview()
   const [isEditorOpen, setIsEditorOpen] = useState(false)
 
   const handleSaveScript = () => {
@@ -30,7 +31,7 @@ export const GameControls: React.FC = () => {
   return (
     <>
       {/* Bot Script Controls */}
-      <div className="absolute bottom-24 left-4 z-50 flex items-center gap-2">
+      <div className="absolute bottom-4 left-4 right-4 z-50 flex items-center justify-between">
         <button
           className="bg-black/90 text-white p-2 px-3 rounded-full text-sm backdrop-blur-sm pointer-events-auto border border-gray-600 flex items-center gap-2 cursor-pointer hover:bg-gray-800 transition-colors"
           onClick={() => setIsEditorOpen(true)}
@@ -48,12 +49,21 @@ export const GameControls: React.FC = () => {
             <span className="text-xs text-gray-400">tap to edit</span>
           </div>
         </button>
-        <button
-          onClick={openDevTools}
-          className="bg-black/90 text-white p-2 px-3 rounded-full text-sm backdrop-blur-sm pointer-events-auto border border-gray-600 flex items-center gap-2 cursor-pointer hover:bg-gray-800 transition-colors"
-        >
-          Open Dev Console
-        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openDevTools}
+            className="bg-black/90 text-white p-2 px-3 rounded-full text-sm backdrop-blur-sm pointer-events-auto border border-gray-600 flex items-center gap-2 cursor-pointer hover:bg-gray-800 transition-colors"
+          >
+            Open Dev Console
+          </button>
+          <button
+            onClick={reloadWebview}
+            className="bg-black/90 text-white p-2 px-3 rounded-full text-sm backdrop-blur-sm pointer-events-auto border border-gray-600 flex items-center gap-2 cursor-pointer hover:bg-gray-800 transition-colors"
+          >
+            Refresh Game
+          </button>
+        </div>
       </div>
 
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>

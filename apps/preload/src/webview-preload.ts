@@ -49,5 +49,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   }
 })
 
-
 console.log('Webview preload script setup complete')

@@ -15,6 +15,7 @@ import type { TaskInsert, SdkMessage } from '@slide.code/schema'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import * as crypto from 'node:crypto'
+import { spawn } from 'node:child_process'
 import { getDefaultProjectsDir, getVibeDir } from '@slide.code/shared'
 import { ensureDirectory, sanitizePathName } from '../utils/filesystem.util.js'
 import { GitRepoTag, makeGitRepo } from '../resources/GitRepo/git-repo.resource.js'
@@ -606,6 +607,322 @@ export const SlideLive = SlideRpcs.toLayer(
           Effect.catchAll((error) => {
             const errorMessage = error instanceof Error ? error.message : String(error)
             console.error('[RPC-HANDLER] ❌ GetTaskDiff error:', errorMessage)
+            return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      // Task archive operations
+      ArchiveTask: ({ taskId }) => {
+        console.log('[RPC-HANDLER] 📦 ArchiveTask called with:', { taskId })
+        return Effect.gen(function* () {
+          yield* dbService.archiveTask(taskId)
+          return true
+        }).pipe(
+          Effect.catchAll((error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ ArchiveTask error:', errorMessage)
+            return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      UnarchiveTask: ({ taskId }) => {
+        console.log('[RPC-HANDLER] 📦 UnarchiveTask called with:', { taskId })
+        return Effect.gen(function* () {
+          yield* dbService.unarchiveTask(taskId)
+          return true
+        }).pipe(
+          Effect.catchAll((error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ UnarchiveTask error:', errorMessage)
+            return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      // Git operations
+      CommitTask: ({ taskId }) => {
+        console.log('[RPC-HANDLER] 🔄 CommitTask called with:', { taskId })
+        return Effect.gen(function* () {
+          // Get the task from database
+          const task = yield* dbService.getTask(taskId)
+          if (!task) {
+            return yield* Effect.fail(`Task not found: ${taskId}`)
+          }
+
+          // Get the project from database
+          const project = yield* dbService.getProject(task.projectId)
+          if (!project) {
+            return yield* Effect.fail(`Project not found: ${task.projectId}`)
+          }
+
+          console.log('[RPC-HANDLER] 🔄 Committing changes for project:', project.path)
+
+          // Initialize git repo and commit changes
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const gitRepo = yield* makeGitRepo({
+                repoPath: project.path,
+                branchName: task.branch || 'master',
+                useWorktree: task.useWorktree || false,
+                autoInit: false
+              })
+
+              // Add all changes
+              yield* gitRepo.add('.')
+
+              // Use the task name as commit message
+              yield* gitRepo.commit(task.name)
+
+              console.log('[RPC-HANDLER] 🔄 Changes committed successfully')
+            })
+          )
+
+          return true
+        }).pipe(
+          Effect.catchAll((error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ CommitTask error:', errorMessage)
+            return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      // External application operations
+      OpenInGitHubDesktop: ({ taskId }) => {
+        console.log('[RPC-HANDLER] 🐙 OpenInGitHubDesktop called with:', { taskId })
+        return Effect.gen(function* () {
+          // Get task and project info
+          const task = yield* dbService.getTask(taskId)
+          if (!task) {
+            return yield* Effect.fail(`Task not found: ${taskId}`)
+          }
+
+          const project = yield* dbService.getProject(task.projectId)
+          if (!project) {
+            return yield* Effect.fail(`Project not found: ${task.projectId}`)
+          }
+
+          // Determine the path to open (worktree path or project path)
+          const pathToOpen =
+            task.useWorktree && task.worktreeName
+              ? path.join(getVibeDir(), 'worktrees', task.worktreeName)
+              : project.path
+
+          // Open in GitHub Desktop using the github: URL scheme
+          yield* Effect.tryPromise({
+            try: () =>
+              new Promise<void>((resolve, reject) => {
+                const child = spawn('open', ['-a', 'GitHub Desktop', pathToOpen], {
+                  stdio: 'ignore',
+                  detached: true
+                })
+                child.on('error', reject)
+                child.on('exit', (code) => {
+                  if (code === 0 || code === null) {
+                    resolve()
+                  } else {
+                    reject(new Error(`GitHub Desktop failed to open with exit code: ${code}`))
+                  }
+                })
+                child.unref()
+              }),
+            catch: (error) => new Error(`Failed to open GitHub Desktop: ${error}`)
+          })
+
+          console.log('[RPC-HANDLER] 🐙 Opened in GitHub Desktop:', pathToOpen)
+          return true
+        }).pipe(
+          Effect.catchAll((error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ OpenInGitHubDesktop error:', errorMessage)
+            return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      OpenInFinder: ({ taskId }) => {
+        console.log('[RPC-HANDLER] 📁 OpenInFinder called with:', { taskId })
+        return Effect.gen(function* () {
+          // Get task and project info
+          const task = yield* dbService.getTask(taskId)
+          if (!task) {
+            return yield* Effect.fail(`Task not found: ${taskId}`)
+          }
+
+          const project = yield* dbService.getProject(task.projectId)
+          if (!project) {
+            return yield* Effect.fail(`Project not found: ${task.projectId}`)
+          }
+
+          // Determine the path to open (worktree path or project path)
+          const pathToOpen =
+            task.useWorktree && task.worktreeName
+              ? path.join(getVibeDir(), 'worktrees', task.worktreeName)
+              : project.path
+
+          // Open in Finder
+          yield* Effect.tryPromise({
+            try: () =>
+              new Promise<void>((resolve, reject) => {
+                const child = spawn('open', [pathToOpen], {
+                  stdio: 'ignore',
+                  detached: true
+                })
+                child.on('error', reject)
+                child.on('exit', (code) => {
+                  if (code === 0 || code === null) {
+                    resolve()
+                  } else {
+                    reject(new Error(`Finder failed to open with exit code: ${code}`))
+                  }
+                })
+                child.unref()
+              }),
+            catch: (error) => new Error(`Failed to open Finder: ${error}`)
+          })
+
+          console.log('[RPC-HANDLER] 📁 Opened in Finder:', pathToOpen)
+          return true
+        }).pipe(
+          Effect.catchAll((error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ OpenInFinder error:', errorMessage)
+            return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      OpenInTerminal: ({ taskId }) => {
+        console.log('[RPC-HANDLER] 💻 OpenInTerminal called with:', { taskId })
+        return Effect.gen(function* () {
+          // Get task and project info
+          const task = yield* dbService.getTask(taskId)
+          if (!task) {
+            return yield* Effect.fail(`Task not found: ${taskId}`)
+          }
+
+          const project = yield* dbService.getProject(task.projectId)
+          if (!project) {
+            return yield* Effect.fail(`Project not found: ${task.projectId}`)
+          }
+
+          // Determine the path to open (worktree path or project path)
+          const pathToOpen =
+            task.useWorktree && task.worktreeName
+              ? path.join(getVibeDir(), 'worktrees', task.worktreeName)
+              : project.path
+
+          // Try to open in iTerm first, then fallback to system Terminal
+          yield* Effect.tryPromise({
+            try: () =>
+              new Promise<void>((resolve, reject) => {
+                // Try iTerm first
+                const child = spawn('open', ['-a', 'iTerm', pathToOpen], {
+                  stdio: 'ignore',
+                  detached: true
+                })
+                child.on('error', () => {
+                  // Fallback to system Terminal
+                  const fallbackChild = spawn('open', ['-a', 'Terminal', pathToOpen], {
+                    stdio: 'ignore',
+                    detached: true
+                  })
+                  fallbackChild.on('error', reject)
+                  fallbackChild.on('exit', (code) => {
+                    if (code === 0 || code === null) {
+                      resolve()
+                    } else {
+                      reject(new Error(`Terminal failed to open with exit code: ${code}`))
+                    }
+                  })
+                  fallbackChild.unref()
+                })
+                child.on('exit', (code) => {
+                  if (code === 0 || code === null) {
+                    resolve()
+                  }
+                  // Don't reject here, let the error handler above handle iTerm failure
+                })
+                child.unref()
+              }),
+            catch: (error) => new Error(`Failed to open terminal: ${error}`)
+          })
+
+          console.log('[RPC-HANDLER] 💻 Opened in terminal:', pathToOpen)
+          return true
+        }).pipe(
+          Effect.catchAll((error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ OpenInTerminal error:', errorMessage)
+            return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      OpenInEditor: ({ taskId }) => {
+        console.log('[RPC-HANDLER] ✏️ OpenInEditor called with:', { taskId })
+        return Effect.gen(function* () {
+          // Get task and project info
+          const task = yield* dbService.getTask(taskId)
+          if (!task) {
+            return yield* Effect.fail(`Task not found: ${taskId}`)
+          }
+
+          const project = yield* dbService.getProject(task.projectId)
+          if (!project) {
+            return yield* Effect.fail(`Project not found: ${task.projectId}`)
+          }
+
+          // Determine the path to open (worktree path or project path)
+          const pathToOpen =
+            task.useWorktree && task.worktreeName
+              ? path.join(getVibeDir(), 'worktrees', task.worktreeName)
+              : project.path
+
+          // Try to open in Cursor first, then fallback to VS Code
+          yield* Effect.tryPromise({
+            try: () =>
+              new Promise<void>((resolve, reject) => {
+                // Try Cursor first
+                const child = spawn('cursor', [pathToOpen], {
+                  stdio: 'ignore',
+                  detached: true
+                })
+                child.on('error', () => {
+                  // Fallback to VS Code
+                  const fallbackChild = spawn('code', [pathToOpen], {
+                    stdio: 'ignore',
+                    detached: true
+                  })
+                  fallbackChild.on('error', reject)
+                  fallbackChild.on('exit', (code) => {
+                    if (code === 0 || code === null) {
+                      resolve()
+                    } else {
+                      reject(new Error(`Editor failed to open with exit code: ${code}`))
+                    }
+                  })
+                  fallbackChild.unref()
+                })
+                child.on('exit', (code) => {
+                  if (code === 0 || code === null) {
+                    resolve()
+                  }
+                  // Don't reject here, let the error handler above handle Cursor failure
+                })
+                child.unref()
+              }),
+            catch: (error) => new Error(`Failed to open editor: ${error}`)
+          })
+
+          console.log('[RPC-HANDLER] ✏️ Opened in editor:', pathToOpen)
+          return true
+        }).pipe(
+          Effect.catchAll((error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ OpenInEditor error:', errorMessage)
             return Effect.fail(errorMessage)
           })
         )

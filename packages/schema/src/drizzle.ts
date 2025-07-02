@@ -50,14 +50,15 @@ export const tasks = sqliteTable('tasks', {
     deletions: number
   }>(),
   model: text('model'),
+  needsReview: integer('needs_review', { mode: 'boolean' }).default(true),
+  archived: integer('archived', { mode: 'boolean' }).default(false),
   createdAt: text('created_at')
     .$defaultFn(() => new Date().toISOString())
     .notNull(),
   updatedAt: text('updated_at')
     .$defaultFn(() => new Date().toISOString())
     .notNull()
-    .$onUpdate(() => new Date().toISOString()),
-  lastAccessedAt: text('last_accessed_at')
+    .$onUpdate(() => new Date().toISOString())
 })
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({

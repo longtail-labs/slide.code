@@ -112,7 +112,8 @@ export const UserStateSchema = Schema.Struct({
   subscribed: Schema.Boolean,
   lastSubscriptionCheck: Schema.Number,
   claudeCode: Schema.optional(ClaudeCodeConfigSchema),
-  vibeDirectory: Schema.optional(Schema.String)
+  vibeDirectory: Schema.optional(Schema.String),
+  currentTaskId: Schema.optional(Schema.Union(Schema.String, Schema.Null))
 })
 
 /**

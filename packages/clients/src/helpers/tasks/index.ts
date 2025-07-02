@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Task, tasks, TaskInsert, TaskQueryKeys, TaskWithMessages } from '@slide.code/schema'
+import {
+  Task,
+  tasks,
+  TaskInsert,
+  TaskQueryKeys,
+  TaskWithMessages,
+  TaskWithProject
+} from '@slide.code/schema'
 import { db } from '../../drizzle/index.js'
 import { eq, desc } from 'drizzle-orm'
 import { useRpc } from '../../rpc/provider.js'
@@ -35,30 +42,48 @@ export const getTaskWithMessages = async (taskId: string): Promise<TaskWithMessa
   return task as TaskWithMessages
 }
 
-// Mark a task as accessed by the user (updates lastAccessedAt)
-export const markTaskAccessed = async (taskId: string): Promise<void> => {
-  console.log('[TASK-HELPERS] 👁️ Marking task as accessed:', taskId)
-  await db
-    .update(tasks)
-    .set({ lastAccessedAt: new Date().toISOString() })
-    .where(eq(tasks.id, taskId))
-  console.log('[TASK-HELPERS] ✅ Task marked as accessed:', taskId)
+// Mark a task as reviewed by the user (sets needsReview to false)
+export const markTaskReviewed = async (taskId: string): Promise<void> => {
+  console.log('[TASK-HELPERS] 👁️ Marking task as reviewed:', taskId)
+  await db.update(tasks).set({ needsReview: false }).where(eq(tasks.id, taskId))
+  console.log('[TASK-HELPERS] ✅ Task marked as reviewed:', taskId)
 }
 
-// Hook to list all tasks
-export const useTasks = () => {
-  return useQuery<Task[], Error>({
-    queryKey: TaskQueryKeys.lists(),
+// Hook to list all tasks (excludes archived by default)
+export const useTasks = (includeArchived = false) => {
+  return useQuery<TaskWithProject[], Error>({
+    queryKey: [...TaskQueryKeys.lists(), 'includeArchived', includeArchived],
     queryFn: async () => {
-      console.log('[TASK-HELPERS] 📋 Fetching all tasks')
+      console.log('[TASK-HELPERS] 📋 Fetching all tasks', { includeArchived })
       const result = await db.query.tasks.findMany({
-        orderBy: [desc(tasks.updatedAt)]
+        where: includeArchived ? undefined : eq(tasks.archived, false),
+        orderBy: [desc(tasks.updatedAt)],
+        with: {
+          project: true
+        }
       })
       console.log('[TASK-HELPERS] 📋 Tasks fetched:', result)
       return result
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 30 // 30 minutes
+    }
+  })
+}
+
+// Hook to list only archived tasks
+export const useArchivedTasks = () => {
+  return useQuery<TaskWithProject[], Error>({
+    queryKey: [...TaskQueryKeys.lists(), 'archived'],
+    queryFn: async () => {
+      console.log('[TASK-HELPERS] 📋 Fetching archived tasks')
+      const result = await db.query.tasks.findMany({
+        where: eq(tasks.archived, true),
+        orderBy: [desc(tasks.updatedAt)],
+        with: {
+          project: true
+        }
+      })
+      console.log('[TASK-HELPERS] 📋 Archived tasks fetched:', result)
+      return result
+    }
   })
 }
 
@@ -77,9 +102,7 @@ export const useTask = (taskId: string) => {
       console.log('[TASK-HELPERS] 📋 Task fetched:', task.name)
       return task
     },
-    enabled: !!taskId,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 10 // 10 minutes
+    enabled: !!taskId
   })
 }
 
@@ -88,9 +111,7 @@ export const useTaskWithMessages = (taskId: string) => {
   return useQuery<TaskWithMessages, Error>({
     queryKey: [...TaskQueryKeys.detail(taskId), 'withMessages'],
     queryFn: () => getTaskWithMessages(taskId),
-    enabled: !!taskId,
-    staleTime: 1000 * 30, // 30 seconds - shorter for real-time updates
-    gcTime: 1000 * 60 * 10 // 10 minutes
+    enabled: !!taskId
   })
 }
 
@@ -198,6 +219,62 @@ export const useDeleteTask = () => {
   })
 }
 
+// Hook to archive a task
+export const useArchiveTask = () => {
+  const queryClient = useQueryClient()
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<boolean, Error, string>({
+    mutationFn: async (taskId: string) => {
+      console.log('[TASK-HELPERS] 📦 Archiving task:', taskId)
+      const success = await runRpcProgram((client) => {
+        return client.ArchiveTask({ taskId })
+      })
+      console.log('[TASK-HELPERS] 📦 Task archived:', success)
+      return success
+    },
+    onSuccess: async (success, taskId) => {
+      console.log('[TASK-HELPERS] ✅ Task archive completed', taskId, success)
+      // Invalidate the task detail and tasks list to show updated status
+      await queryClient.invalidateQueries({ queryKey: TaskQueryKeys.detail(taskId) })
+      await queryClient.invalidateQueries({ queryKey: TaskQueryKeys.lists() })
+
+      console.log('[TASK-HELPERS] ✅ Task archive completed and cache invalidated')
+    },
+    onError: (error) => {
+      console.error('[TASK-HELPERS] ❌ Error archiving task:', error)
+    }
+  })
+}
+
+// Hook to unarchive a task
+export const useUnarchiveTask = () => {
+  const queryClient = useQueryClient()
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<boolean, Error, string>({
+    mutationFn: async (taskId: string) => {
+      console.log('[TASK-HELPERS] 📦 Unarchiving task:', taskId)
+      const success = await runRpcProgram((client) => {
+        return client.UnarchiveTask({ taskId })
+      })
+      console.log('[TASK-HELPERS] 📦 Task unarchived:', success)
+      return success
+    },
+    onSuccess: async (success, taskId) => {
+      console.log('[TASK-HELPERS] ✅ Task unarchive completed', taskId, success)
+      // Invalidate the task detail and tasks list to show updated status
+      await queryClient.invalidateQueries({ queryKey: TaskQueryKeys.detail(taskId) })
+      await queryClient.invalidateQueries({ queryKey: TaskQueryKeys.lists() })
+
+      console.log('[TASK-HELPERS] ✅ Task unarchive completed and cache invalidated')
+    },
+    onError: (error) => {
+      console.error('[TASK-HELPERS] ❌ Error unarchiving task:', error)
+    }
+  })
+}
+
 // Hook to start a task with Claude Code agent
 export const useStartTask = () => {
   const queryClient = useQueryClient()
@@ -262,7 +339,7 @@ export const useContinueTask = () => {
 }
 
 // Helper function to group tasks by status
-export const groupTasksByStatus = (tasks: Task[]) => {
+export const groupTasksByStatus = (tasks: TaskWithProject[]) => {
   const grouped = tasks.reduce(
     (groups, task) => {
       const status = task.status
@@ -272,7 +349,7 @@ export const groupTasksByStatus = (tasks: Task[]) => {
       groups[status].push(task)
       return groups
     },
-    {} as Record<string, Task[]>
+    {} as Record<string, TaskWithProject[]>
   )
 
   // Sort each group by most recently updated first
@@ -301,9 +378,110 @@ export const useTaskDiff = (taskId: string, options?: string[]) => {
       console.log('[TASK-HELPERS] 🔍 Diff fetched, length:', diff.length)
       return diff
     },
-    enabled: !!taskId,
-    staleTime: 1000 * 30, // 30 seconds
-    gcTime: 1000 * 60 * 5 // 5 minutes
+    enabled: !!taskId
+  })
+}
+
+// Hook to commit a task's changes
+export const useCommitTask = () => {
+  const queryClient = useQueryClient()
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<boolean, Error, string>({
+    mutationFn: async (taskId: string) => {
+      console.log('[TASK-HELPERS] 🔄 Committing task:', taskId)
+      const success = await runRpcProgram((client) => {
+        return client.CommitTask({ taskId })
+      })
+      console.log('[TASK-HELPERS] 🔄 Task committed:', success)
+      return success
+    },
+    onSuccess: async (success, taskId) => {
+      console.log('[TASK-HELPERS] ✅ Task commit completed', taskId, success)
+      // Invalidate the task diff query since changes are now committed
+      await queryClient.invalidateQueries({ queryKey: [...TaskQueryKeys.detail(taskId), 'diff'] })
+
+      console.log('[TASK-HELPERS] ✅ Task commit completed and cache invalidated')
+    },
+    onError: (error) => {
+      console.error('[TASK-HELPERS] ❌ Error committing task:', error)
+    }
+  })
+}
+
+// Hook to open task in GitHub Desktop
+export const useOpenInGitHubDesktop = () => {
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<boolean, Error, string>({
+    mutationFn: async (taskId: string) => {
+      console.log('[TASK-HELPERS] 🐙 Opening task in GitHub Desktop:', taskId)
+      const success = await runRpcProgram((client) => {
+        return client.OpenInGitHubDesktop({ taskId })
+      })
+      console.log('[TASK-HELPERS] 🐙 Opened in GitHub Desktop:', success)
+      return success
+    },
+    onError: (error) => {
+      console.error('[TASK-HELPERS] ❌ Error opening in GitHub Desktop:', error)
+    }
+  })
+}
+
+// Hook to open task in Finder
+export const useOpenInFinder = () => {
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<boolean, Error, string>({
+    mutationFn: async (taskId: string) => {
+      console.log('[TASK-HELPERS] 📁 Opening task in Finder:', taskId)
+      const success = await runRpcProgram((client) => {
+        return client.OpenInFinder({ taskId })
+      })
+      console.log('[TASK-HELPERS] 📁 Opened in Finder:', success)
+      return success
+    },
+    onError: (error) => {
+      console.error('[TASK-HELPERS] ❌ Error opening in Finder:', error)
+    }
+  })
+}
+
+// Hook to open task in Terminal
+export const useOpenInTerminal = () => {
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<boolean, Error, string>({
+    mutationFn: async (taskId: string) => {
+      console.log('[TASK-HELPERS] 💻 Opening task in Terminal:', taskId)
+      const success = await runRpcProgram((client) => {
+        return client.OpenInTerminal({ taskId })
+      })
+      console.log('[TASK-HELPERS] 💻 Opened in Terminal:', success)
+      return success
+    },
+    onError: (error) => {
+      console.error('[TASK-HELPERS] ❌ Error opening in Terminal:', error)
+    }
+  })
+}
+
+// Hook to open task in Editor
+export const useOpenInEditor = () => {
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<boolean, Error, string>({
+    mutationFn: async (taskId: string) => {
+      console.log('[TASK-HELPERS] ✏️ Opening task in Editor:', taskId)
+      const success = await runRpcProgram((client) => {
+        return client.OpenInEditor({ taskId })
+      })
+      console.log('[TASK-HELPERS] ✏️ Opened in Editor:', success)
+      return success
+    },
+    onError: (error) => {
+      console.error('[TASK-HELPERS] ❌ Error opening in Editor:', error)
+    }
   })
 }
 

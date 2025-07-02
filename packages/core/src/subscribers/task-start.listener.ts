@@ -15,6 +15,7 @@ import {
 import { findClaudeCodeExecutable } from '../effects/findClaudeCodeExecutable.effect.js'
 import type { SdkMessage } from '@slide.code/schema'
 import { Option } from 'effect'
+import { getUserRef } from '../refs/ipc/user.ref.js'
 
 /**
  * Set up a subscriber that handles TASK_START messages by creating and running Claude Code Agent
@@ -283,19 +284,33 @@ const make = Effect.gen(function* () {
                               `[TaskStartListener] Agent run has concluded with status: ${status}`
                             )
 
-                            // If the agent finished successfully, update task status to "completed" (needs review)
+                            // If the agent finished successfully, update task status to "completed" and check if needs review
                             if (status === 'finished') {
                               console.log(
-                                '[TaskStartListener] 🔄 Agent finished successfully, updating task status to "completed" and needs review'
+                                '[TaskStartListener] 🔄 Agent finished successfully, updating task status to "completed"'
+                              )
+
+                              // Check if user is currently viewing this task
+                              const userRef = yield* getUserRef
+                              const userState = yield* userRef.get()
+                              const isCurrentlyViewing = userState.currentTaskId === task.id
+                              const needsReview = !isCurrentlyViewing
+
+                              console.log(
+                                `[TaskStartListener] 🔍 User currently viewing task ${task.id}:`,
+                                isCurrentlyViewing,
+                                `- needsReview: ${needsReview}`
                               )
 
                               yield* dbService.updateTask(task.id, {
-                                status: 'completed'
+                                status: 'completed',
+                                needsReview
                               })
 
                               console.log(
                                 '[TaskStartListener] ✅ Task status updated to "completed" for task:',
-                                task.id
+                                task.id,
+                                `(needsReview: ${needsReview})`
                               )
 
                               // Invalidate task queries to update the UI

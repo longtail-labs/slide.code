@@ -226,7 +226,7 @@ func GamePage(player *types.Player, gameState *types.GameState) templ.Component 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></div> <script>\n      document.addEventListener('DOMContentLoaded', () => {\n        (() => {\n          // 1. Minimal Game SDK for the Bot\n          const game = {\n            _state: {}, // Initialize with empty state, will be populated by events\n            _listeners: new Map(),\n\n            // Expose a safe, read-only copy of the state\n            getState: () => JSON.parse(JSON.stringify(game._state)),\n\n            // Abstraction to perform the 'place bit' action\n            place: (x, y) => {\n              console.log(`🤖 Bot action: place at (${x}, ${y})`);\n              const state = game.getState(); // Use the SDK's own state\n              if (state.player && state.player.bits > 0 && state.roundState === 'In Progress') {\n                // Use the standard 'fetch' API to make the POST request\n                fetch(`/action?x=${x}&y=${y}`, {\n                  method: 'POST',\n                }).catch(err => console.error('🤖 Action failed:', err));\n              } else {\n                console.log('🤖 Bot action skipped: conditions not met.');\n              }\n            },\n\n            // Allow the bot to listen for game state updates\n            on: (eventName, callback) => {\n              if (!game._listeners.has(eventName)) {\n                game._listeners.set(eventName, []);\n              }\n              game._listeners.get(eventName).push(callback);\n            },\n\n            // Internal function to trigger events\n            _emit: (eventName, data) => {\n              if (game._listeners.has(eventName)) {\n                game._listeners.get(eventName).forEach(cb => {\n                  try {\n                    cb(data);\n                  } catch (e) {\n                    console.error('🤖 Bot script error:', e);\n                  }\n                });\n              }\n            }\n          };\n\n          // Hook into the game state updates from the server\n          window.addEventListener('game:state:updated', (event) => {\n            // console.log('🤖 Received game:state:updated event:', event.detail);\n            const newState = event.detail;\n            if (newState && Object.keys(newState).length > 0) {\n              game._state = newState;\n              game._emit('update', game.getState());\n            }\n          });\n\n          // 2. Sandboxed Script Runner\n          function runSandboxedScript(code, sdk) {\n            console.log(\"🚀 Preparing to run user script in a sandbox.\");\n            try {\n              // Create a sandboxed function. It can only see the variables we pass it.\n              const sandboxedFunction = new Function('on', 'place', 'getState', code);\n\n              // Execute the script, providing the sandboxed API.\n              sandboxedFunction(sdk.on, sdk.place, sdk.getState);\n              console.log(\"✅ User script has been successfully sandboxed and executed.\");\n\n              // --- Electron Integration ---\n              if (window.electronAPI && typeof window.electronAPI.sendToHost === 'function') {\n                console.log('🔌 Electron API detected. Sending script-loaded event.');\n                window.electronAPI.sendToHost({\n                  event: 'bot-script-loaded',\n                  status: 'success',\n                  timestamp: Date.now(),\n                });\n              }\n\n            } catch (e) {\n              console.error(\"☠️ Error executing sandboxed script:\", e);\n              // Also notify Electron if it fails\n              if (window.electronAPI && typeof window.electronAPI.sendToHost === 'function') {\n                console.log('🔌 Electron API detected. Sending script-error event.');\n                window.electronAPI.sendToHost({\n                  event: 'bot-script-loaded',\n                  status: 'error',\n                  error: e.message,\n                  timestamp: Date.now(),\n                });\n              }\n            }\n          }\n\n          // 3. Listen for script-loading messages from the Electron host\n          window.addEventListener('electron-host-message', (event) => {\n            const message = event.detail;\n            console.log('🤖 Received message from Electron host:', message);\n\n            if (message && message.type === 'load-script' && message.script) {\n              console.log('🤖 Received new script from host. Reloading bot.');\n              // Clear any old listeners from previous scripts\n              game._listeners.clear();\n              runSandboxedScript(message.script, game);\n            }\n          });\n\n          // Expose the SDK to the window for debugging\n          window.gameSDK = game;\n          console.log(\"🤖 Bot scripting engine initialized. Use `window.gameSDK` to inspect. Waiting for script from host.\");\n        })();\n      });\n    </script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></div> <script>\n      document.addEventListener('DOMContentLoaded', () => {\n        (() => {\n          // 1. Minimal Game SDK for the Bot\n          const game = {\n            _state: {}, // Initialize with empty state, will be populated by events\n            _listeners: new Map(),\n\n            // Expose a safe, read-only copy of the state\n            getState: () => JSON.parse(JSON.stringify(game._state)),\n\n            // Abstraction to perform the 'place bit' action\n            place: (x, y) => {\n              console.log(`🤖 Bot action: place at (${x}, ${y})`);\n              const state = game.getState(); // Use the SDK's own state\n              console.log(`🤖 Current player state: bits=${state.player?.bits}, roundState=${state.roundState}`);\n              if (state.player && state.player.bits > 0 && state.roundState === 'In Progress') {\n                // Extract userId from URL parameters\n                const urlParams = new URLSearchParams(window.location.search);\n                const userId = urlParams.get('userId');\n                \n                // Include userId in the action request\n                const actionUrl = userId \n                  ? `/action?x=${x}&y=${y}&userId=${encodeURIComponent(userId)}`\n                  : `/action?x=${x}&y=${y}`;\n                \n                // Use the standard 'fetch' API to make the POST request\n                fetch(actionUrl, {\n                  method: 'POST',\n                }).then(response => {\n                  if (!response.ok) {\n                    // Log more detailed error information\n                    return response.text().then(errorText => {\n                      console.error(`🤖 Action failed: ${response.status} ${response.statusText} - ${errorText}`);\n                      console.error(`🤖 Player state: bits=${state.player.bits}, roundState=${state.roundState}`);\n                    });\n                  }\n                  console.log(`🤖 Action successful: placed bit at (${x}, ${y})`);\n                }).catch(err => console.error('🤖 Network error:', err));\n              } else {\n                console.log('🤖 Bot action skipped: conditions not met.');\n              }\n            },\n\n            // Allow the bot to listen for game state updates\n            on: (eventName, callback) => {\n              if (!game._listeners.has(eventName)) {\n                game._listeners.set(eventName, []);\n              }\n              game._listeners.get(eventName).push(callback);\n            },\n\n            // Internal function to trigger events\n            _emit: (eventName, data) => {\n              if (game._listeners.has(eventName)) {\n                game._listeners.get(eventName).forEach(cb => {\n                  try {\n                    cb(data);\n                  } catch (e) {\n                    console.error('🤖 Bot script error:', e);\n                  }\n                });\n              }\n            }\n          };\n\n          // Hook into the game state updates from the server\n          window.addEventListener('game:state:updated', (event) => {\n            // console.log('🤖 Received game:state:updated event:', event.detail);\n            const newState = event.detail;\n            if (newState && Object.keys(newState).length > 0) {\n              game._state = newState;\n              game._emit('update', game.getState());\n            }\n          });\n\n          // 2. Sandboxed Script Runner\n          function runSandboxedScript(code, sdk) {\n            console.log(\"🚀 Preparing to run user script in a sandbox.\");\n            try {\n              // Create a sandboxed function. It can only see the variables we pass it.\n              const sandboxedFunction = new Function('on', 'place', 'getState', code);\n\n              // Execute the script, providing the sandboxed API.\n              sandboxedFunction(sdk.on, sdk.place, sdk.getState);\n              console.log(\"✅ User script has been successfully sandboxed and executed.\");\n\n              // --- Electron Integration ---\n              if (window.electronAPI && typeof window.electronAPI.sendToHost === 'function') {\n                console.log('🔌 Electron API detected. Sending script-loaded event.');\n                window.electronAPI.sendToHost({\n                  event: 'bot-script-loaded',\n                  status: 'success',\n                  timestamp: Date.now(),\n                });\n              }\n\n            } catch (e) {\n              console.error(\"☠️ Error executing sandboxed script:\", e);\n              // Also notify Electron if it fails\n              if (window.electronAPI && typeof window.electronAPI.sendToHost === 'function') {\n                console.log('🔌 Electron API detected. Sending script-error event.');\n                window.electronAPI.sendToHost({\n                  event: 'bot-script-loaded',\n                  status: 'error',\n                  error: e.message,\n                  timestamp: Date.now(),\n                });\n              }\n            }\n          }\n\n          // 3. Listen for script-loading messages from the Electron host\n          window.addEventListener('electron-host-message', (event) => {\n            const message = event.detail;\n            console.log('🤖 Received message from Electron host:', message);\n\n            if (message && message.type === 'load-script' && message.script) {\n              console.log('🤖 Received new script from host. Reloading bot.');\n              // Clear any old listeners from previous scripts\n              game._listeners.clear();\n              runSandboxedScript(message.script, game);\n            }\n          });\n\n          // Expose the SDK to the window for debugging\n          window.gameSDK = game;\n          console.log(\"🤖 Bot scripting engine initialized. Use `window.gameSDK` to inspect. Waiting for script from host.\");\n        })();\n      });\n    </script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -273,7 +273,7 @@ func RoundStatusComponent(gameState *types.GameState) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(FormatDuration(gameState.RoundTimeRemaining))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 200, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 219, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -292,7 +292,7 @@ func RoundStatusComponent(gameState *types.GameState) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", int(gameState.Countdown.Seconds())))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 207, Col: 117}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 226, Col: 117}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -338,7 +338,7 @@ func RoundStatusComponent(gameState *types.GameState) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(gameState.Winner.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 214, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 233, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -361,7 +361,7 @@ func RoundStatusComponent(gameState *types.GameState) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", int(gameState.Countdown.Seconds())))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 219, Col: 132}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 238, Col: 132}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
@@ -408,7 +408,7 @@ func GridComponent(gameState *types.GameState) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("grid-template-columns: repeat(%d, 1fr); grid-template-rows: repeat(%d, 1fr); width: min(70vw, 70vh * %d / %d); height: min(70vh, 70vw * %d / %d);", types.GridWidth, types.GridHeight, types.GridWidth, types.GridHeight, types.GridHeight, types.GridWidth))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 230, Col: 275}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 249, Col: 275}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -419,9 +419,9 @@ func GridComponent(gameState *types.GameState) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var20 string
-		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf(`(evt.target.dataset.x && evt.target.dataset.y && $bits > 0 && $roundState === '%s') && @post('/action?x=' + evt.target.dataset.x + '&y=' + evt.target.dataset.y)`, types.InProgress))
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf(`(evt.target.dataset.x && evt.target.dataset.y && $bits > 0 && $roundState === '%s') && @post('/action?x=' + evt.target.dataset.x + '&y=' + evt.target.dataset.y + '&userId=' + (new URLSearchParams(window.location.search).get('userId') || ''))`, types.InProgress))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 231, Col: 211}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 250, Col: 292}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -503,7 +503,7 @@ func PlayerHUD(player *types.Player, team *types.Team) templ.Component {
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(player.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 253, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 272, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 		if templ_7745c5c3_Err != nil {
@@ -539,7 +539,7 @@ func PlayerHUD(player *types.Player, team *types.Team) templ.Component {
 			var templ_7745c5c3_Var27 string
 			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(team.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 255, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 274, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 			if templ_7745c5c3_Err != nil {
@@ -562,7 +562,7 @@ func PlayerHUD(player *types.Player, team *types.Team) templ.Component {
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", team.Score))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 260, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 279, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 			if templ_7745c5c3_Err != nil {
@@ -602,7 +602,7 @@ func PlayerHUD(player *types.Player, team *types.Team) templ.Component {
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("width: %d%%;", (player.Bits*100)/types.MaxBits))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 267, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 286, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
@@ -615,7 +615,7 @@ func PlayerHUD(player *types.Player, team *types.Team) templ.Component {
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("`width: ${ $bits * 100 / %d }%%;`", types.MaxBits))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 268, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 287, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -628,7 +628,7 @@ func PlayerHUD(player *types.Player, team *types.Team) templ.Component {
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("`${$bits}/%d`", types.MaxBits))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 272, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 291, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
@@ -641,7 +641,7 @@ func PlayerHUD(player *types.Player, team *types.Team) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d/%d", player.Bits, types.MaxBits))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 272, Col: 118}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 291, Col: 118}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
@@ -688,7 +688,7 @@ func LeaderboardComponent(gameState *types.GameState) templ.Component {
 			var templ_7745c5c3_Var36 string
 			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", i+1))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 285, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 304, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 			if templ_7745c5c3_Err != nil {
@@ -723,7 +723,7 @@ func LeaderboardComponent(gameState *types.GameState) templ.Component {
 			var templ_7745c5c3_Var39 string
 			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(t.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 288, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 307, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 			if templ_7745c5c3_Err != nil {
@@ -736,7 +736,7 @@ func LeaderboardComponent(gameState *types.GameState) templ.Component {
 			var templ_7745c5c3_Var40 string
 			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d Active, %d Idle", t.ActivePlayers, t.IdlePlayers))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 290, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 309, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 			if templ_7745c5c3_Err != nil {
@@ -749,7 +749,7 @@ func LeaderboardComponent(gameState *types.GameState) templ.Component {
 			var templ_7745c5c3_Var41 string
 			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.1f%%", t.Percentage))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 294, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/pages/game/game.templ`, Line: 313, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 			if templ_7745c5c3_Err != nil {

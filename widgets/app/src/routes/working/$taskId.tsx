@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { WorkingScreen } from '@/screens'
 import { zodValidator } from '@tanstack/zod-adapter'
 import { z } from 'zod'
-import { getTaskWithMessages, markTaskAccessed } from '@slide.code/clients'
+import { getTaskWithMessages, markTaskReviewed } from '@slide.code/clients'
 import { TaskQueryKeys } from '@slide.code/schema'
 
 // Define the search params schema
@@ -20,7 +20,7 @@ export const Route = createFileRoute('/working/$taskId')({
   // },
   loader: async ({ params: { taskId }, context: { queryClient } }) => {
     console.log('Task id in loader', taskId)
-    await markTaskAccessed(taskId)
+    await markTaskReviewed(taskId)
 
     // Prefetch the task with messages using the same query key and function as useTaskWithMessages
     const taskWithMessagesQueryKey = [...TaskQueryKeys.detail(taskId), 'withMessages']

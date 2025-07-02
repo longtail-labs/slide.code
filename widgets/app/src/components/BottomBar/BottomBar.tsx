@@ -25,7 +25,17 @@ import {
   useParams
 } from '@tanstack/react-router'
 import { useGameWebview } from '@/components/GameWebviewManager'
-import { useTaskWithMessages, useTaskDiff, useProjects } from '@slide.code/clients'
+import {
+  useTaskWithMessages,
+  useTaskDiff,
+  useProjects,
+  useCommitTask,
+  useOpenInGitHubDesktop,
+  useOpenInFinder,
+  useOpenInTerminal,
+  useOpenInEditor,
+  useArchiveTask
+} from '@slide.code/clients'
 
 interface SomaFmPlaylist {
   url: string
@@ -64,11 +74,19 @@ const BottomBar = () => {
   const { data: diffText } = useTaskDiff(taskIdFromPath || '')
   const { data: projects } = useProjects()
 
+  // Bottom bar action hooks
+  const commitTask = useCommitTask()
+  const openInGitHubDesktop = useOpenInGitHubDesktop()
+  const openInFinder = useOpenInFinder()
+  const openInTerminal = useOpenInTerminal()
+  const openInEditor = useOpenInEditor()
+  const archiveTask = useArchiveTask()
+
   // Calculate diff stats from the actual diff text
   const diffStats = useMemo(() => {
     if (!diffText) return { additions: 0, deletions: 0 }
 
-    const lines = diffText.split('\n')
+    const lines = (diffText as string).split('\n')
     let additions = 0
     let deletions = 0
 
@@ -403,9 +421,24 @@ const BottomBar = () => {
                 </span>
               </div>
             )}
-            <Button variant="outline" size="sm" className="h-8">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => {
+                if (taskIdFromPath) {
+                  archiveTask.mutate(taskIdFromPath, {
+                    onSuccess: () => {
+                      // Navigate back to home after successful archive
+                      navigate({ to: '/' })
+                    }
+                  })
+                }
+              }}
+              disabled={archiveTask.isPending}
+            >
               <Archive className="h-3.5 w-3.5 mr-1.5" />
-              Archive
+              {archiveTask.isPending ? 'Archiving...' : 'Archive'}
             </Button>
             <Popover>
               <PopoverTrigger asChild>
@@ -415,22 +448,70 @@ const BottomBar = () => {
               </PopoverTrigger>
               <PopoverContent className="w-48 p-1" align="center" side="top">
                 <div className="grid gap-1">
-                  <Button variant="ghost" className="justify-start w-full h-8 px-2">
+                  <Button
+                    variant="ghost"
+                    className="justify-start w-full h-8 px-2"
+                    onClick={() => {
+                      if (taskIdFromPath) {
+                        openInEditor.mutate(taskIdFromPath)
+                      }
+                    }}
+                    disabled={openInEditor.isPending}
+                  >
                     <Code className="h-4 w-4 mr-2" /> Open in Editor
                   </Button>
-                  <Button variant="ghost" className="justify-start w-full h-8 px-2">
+                  <Button
+                    variant="ghost"
+                    className="justify-start w-full h-8 px-2"
+                    onClick={() => {
+                      if (taskIdFromPath) {
+                        openInFinder.mutate(taskIdFromPath)
+                      }
+                    }}
+                    disabled={openInFinder.isPending}
+                  >
                     <Folder className="h-4 w-4 mr-2" /> Open in Finder
                   </Button>
-                  <Button variant="ghost" className="justify-start w-full h-8 px-2">
+                  <Button
+                    variant="ghost"
+                    className="justify-start w-full h-8 px-2"
+                    onClick={() => {
+                      if (taskIdFromPath) {
+                        openInTerminal.mutate(taskIdFromPath)
+                      }
+                    }}
+                    disabled={openInTerminal.isPending}
+                  >
                     <Terminal className="h-4 w-4 mr-2" /> Open in Terminal
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start w-full h-8 px-2"
+                    onClick={() => {
+                      if (taskIdFromPath) {
+                        openInGitHubDesktop.mutate(taskIdFromPath)
+                      }
+                    }}
+                    disabled={openInGitHubDesktop.isPending}
+                  >
+                    <GitCommit className="h-4 w-4 mr-2" /> GitHub Desktop
                   </Button>
                 </div>
               </PopoverContent>
             </Popover>
 
-            <Button size="sm" className="h-8">
+            <Button
+              size="sm"
+              className="h-8"
+              onClick={() => {
+                if (taskIdFromPath) {
+                  commitTask.mutate(taskIdFromPath)
+                }
+              }}
+              disabled={commitTask.isPending}
+            >
               <GitCommit className="h-3.5 w-3.5 mr-1.5" />
-              Commit
+              {commitTask.isPending ? 'Committing...' : 'Commit'}
             </Button>
           </div>
         </div>

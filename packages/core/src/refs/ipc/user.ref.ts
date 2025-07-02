@@ -70,7 +70,14 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
         ...userState,
         userId,
         installationDate: Date.now(),
-        lastSubscriptionCheck: Date.now()
+        lastSubscriptionCheck: Date.now(),
+        currentTaskId: null // This shouldn't persist, so always initialize as null
+      }
+    } else {
+      // Always reset currentTaskId on startup since it shouldn't persist
+      userState = {
+        ...userState,
+        currentTaskId: null
       }
     }
 
@@ -170,6 +177,32 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
       )
     })
 
+    /**
+     * Set the current task ID (when user navigates to a task)
+     */
+    const setCurrentTaskId = (taskId: string) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] setCurrentTaskId', taskId)
+        yield* ref.update((state) => ({
+          ...state,
+          currentTaskId: taskId
+        }))
+        return true
+      })
+
+    /**
+     * Clear the current task ID (when user navigates away from a task)
+     */
+    const clearCurrentTaskId = () =>
+      Effect.gen(function* () {
+        console.log('[UserRef] clearCurrentTaskId')
+        yield* ref.update((state) => ({
+          ...state,
+          currentTaskId: null
+        }))
+        return true
+      })
+
     // Register a finalizer for cleanup
     yield* Effect.addFinalizer(() =>
       Effect.gen(function* () {
@@ -185,7 +218,9 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
       updateVibeDirectory,
       updateClaudeCodeExecutablePath,
       updateClaudeCodeStats,
-      getClaudeCodeConfig
+      getClaudeCodeConfig,
+      setCurrentTaskId,
+      clearCurrentTaskId
     }
   })
 }) {}
@@ -283,3 +318,21 @@ export const getClaudeCodeExecutablePath = Effect.gen(function* () {
   const config = yield* getClaudeCodeConfig()
   return config.executablePath
 })
+
+/**
+ * Set the current task ID (exposed for direct invocation)
+ */
+export const setCurrentTaskId = (taskId: string) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.setCurrentTaskId(taskId)
+  })
+
+/**
+ * Clear the current task ID (exposed for direct invocation)
+ */
+export const clearCurrentTaskId = () =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.clearCurrentTaskId()
+  })

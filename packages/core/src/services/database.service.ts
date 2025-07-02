@@ -375,6 +375,58 @@ export class DatabaseService extends Effect.Service<DatabaseService>()('Database
         }
       })
 
+    const archiveTask = (id: string) =>
+      Effect.tryPromise({
+        try: async () => {
+          if (!initialized) {
+            throw new Error('Database service not initialized')
+          }
+
+          const [updated] = await _db
+            .update(schema.schema.tasks)
+            .set({ archived: true })
+            .where(eq(schema.schema.tasks.id, id))
+            .returning()
+
+          if (!updated) {
+            throw new Error('Task not found')
+          }
+
+          return updated as Task
+        },
+        catch: (error) => {
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          dbLogger('Failed to archive task:', errorMessage)
+          return new DatabaseServiceError(`Failed to archive task: ${errorMessage}`)
+        }
+      })
+
+    const unarchiveTask = (id: string) =>
+      Effect.tryPromise({
+        try: async () => {
+          if (!initialized) {
+            throw new Error('Database service not initialized')
+          }
+
+          const [updated] = await _db
+            .update(schema.schema.tasks)
+            .set({ archived: false })
+            .where(eq(schema.schema.tasks.id, id))
+            .returning()
+
+          if (!updated) {
+            throw new Error('Task not found')
+          }
+
+          return updated as Task
+        },
+        catch: (error) => {
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          dbLogger('Failed to unarchive task:', errorMessage)
+          return new DatabaseServiceError(`Failed to unarchive task: ${errorMessage}`)
+        }
+      })
+
     // Chat Message Operations
     const createChatMessage = (message: ChatMessageInsert) =>
       Effect.tryPromise({
@@ -562,6 +614,8 @@ export class DatabaseService extends Effect.Service<DatabaseService>()('Database
       getTasksForProject,
       updateTask,
       removeTask,
+      archiveTask,
+      unarchiveTask,
       // Chat message operations
       createChatMessage,
       getChatMessage,

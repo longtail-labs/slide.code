@@ -36,7 +36,7 @@ let eventHandlerFiber: Fiber.RuntimeFiber<any, any> | null = null
 const program = Effect.gen(function* () {
   try {
     // First register SSR protocols before app is ready and any service initialization
-    // yield* registerSSRProtocols
+    yield* registerSSRProtocols
 
     // Register custom protocol for deep linking
     yield* registerDeepLinkingProtocol

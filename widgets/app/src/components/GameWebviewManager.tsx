@@ -29,7 +29,7 @@ on('update', (state) => {
 
   // If the random cell isn't ours, take it
   if (grid[y][x] !== myTeam) {
-    console.log(\`🤖 Randomly chose target at (\${x}, \${y}), owned by \${grid[y][x]}. Placing bit.\`);
+    console.log(\`🤖 Randomly chose target at (\${x}, \${y}), owned by \${grid[y][x]}. Player has \${state.player.bits} bits.\`);
     place(x, y);
     lastMove = now; // Set cooldown after action
   } else {
@@ -43,8 +43,10 @@ interface GameWebviewContextType {
   isScriptActive: boolean
   sendMessageToWebview: (message: any) => void
   loadScript: (script: string) => void
+  reloadWebview: () => void
   botScript: string
   setBotScript: (script: string) => void
+  userID: string | null
 }
 
 const GameWebviewContext = createContext<GameWebviewContextType | null>(null)
@@ -61,6 +63,24 @@ interface GameWebviewManagerProps {
   children: React.ReactNode
 }
 
+// Generate a unique user ID if one doesn't exist
+const generateUserID = (): string => {
+  return 'user_' + Math.random().toString(36).substr(2, 9)
+}
+
+// Get or create user ID from localStorage
+const getUserID = (): string => {
+  let userID = localStorage.getItem('bitSplatUserID')
+  if (!userID) {
+    userID = generateUserID()
+    localStorage.setItem('bitSplatUserID', userID)
+    console.log('🆔 Generated new user ID:', userID)
+  } else {
+    console.log('🆔 Using existing user ID:', userID)
+  }
+  return userID
+}
+
 export const GameWebviewManager: React.FC<GameWebviewManagerProps> = ({ children }) => {
   const router = useRouter()
   const [webviewStatus, setWebviewStatus] = useState('Loading...')
@@ -71,6 +91,7 @@ export const GameWebviewManager: React.FC<GameWebviewManagerProps> = ({ children
   const [botScript, setBotScript] = useState(() => {
     return localStorage.getItem('botScript') || DEFAULT_BOT_SCRIPT
   })
+  const [userID] = useState(() => getUserID())
 
   // Save script to localStorage when it changes
   useEffect(() => {
@@ -91,6 +112,16 @@ export const GameWebviewManager: React.FC<GameWebviewManagerProps> = ({ children
     }
   }
 
+  const reloadWebview = () => {
+    const webview = webviewRef.current as any
+    if (webview) {
+      console.log('Host: Reloading webview')
+      webview.reload()
+    } else {
+      console.warn('Webview not available for reload')
+    }
+  }
+
   const loadScript = (script: string) => {
     setBotScript(script)
     sendMessageToWebview({
@@ -101,6 +132,35 @@ export const GameWebviewManager: React.FC<GameWebviewManagerProps> = ({ children
 
   // Check if we're currently on the game route
   const isGameRoute = router.state.location.pathname === '/game'
+
+  // This effect will run when the user navigates to/from the game route
+  useEffect(() => {
+    if (!userID) return
+
+    const setPlayerStatus = async (status: 'active' | 'idle') => {
+      try {
+        const port = 3000 // The game server runs on port 3000
+        const url = `http://localhost:${port}/api/player/${encodeURIComponent(userID)}/${status}`
+        const response = await fetch(url, { method: 'POST' })
+        if (!response.ok) {
+          throw new Error(`Server responded with ${response.status}`)
+        }
+        console.log(`Player ${userID} status set to ${status}`)
+      } catch (error) {
+        console.error(`Failed to set player status to ${status}:`, error)
+      }
+    }
+
+    if (isGameRoute) {
+      setPlayerStatus('active')
+    } else {
+      // When navigating away, mark as idle
+      setPlayerStatus('idle')
+    }
+  }, [isGameRoute, userID])
+
+  // Build the webview URL with user ID parameter
+  const webviewURL = `http://localhost:3000?userId=${encodeURIComponent(userID)}`
 
   useEffect(() => {
     const webview = webviewRef.current as any
@@ -202,8 +262,10 @@ export const GameWebviewManager: React.FC<GameWebviewManagerProps> = ({ children
     isScriptActive,
     sendMessageToWebview,
     loadScript,
+    reloadWebview,
     botScript,
-    setBotScript
+    setBotScript,
+    userID
   }
 
   return (
@@ -211,7 +273,7 @@ export const GameWebviewManager: React.FC<GameWebviewManagerProps> = ({ children
       {/* Persistent webview - always in DOM but hidden when not on game route */}
       <webview
         ref={webviewRef}
-        src="http://localhost:3000"
+        src={webviewURL}
         className="fixed inset-0 w-full h-full z-40"
         style={{
           display: isGameRoute ? 'flex' : 'none',
