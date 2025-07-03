@@ -111,7 +111,7 @@ jobs:
           APPLE_NOTARIZATION_PRIVATE_KEY: ${{ secrets.APPLE_NOTARIZATION_PRIVATE_KEY }}
         with:
           command: make copied-site
-          # signing_key: ${{ secrets.SIGNING_KEY }}
+          signing_key: ${{ secrets.SIGNING_KEY }}
           extra_flags: -f conveyor.beta.conf
           agree_to_license: 1
 
