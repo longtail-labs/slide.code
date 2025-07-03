@@ -107,9 +107,9 @@ jobs:
           ENV: production
           MODE: beta
           BUILD_VERSION: ${{ needs.generate-version.outputs.beta_version }}
-          APPLE_NOTARIZATION_ISSUER_ID: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
-          APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
-          APPLE_NOTARIZATION_PRIVATE_KEY: ${{ secrets.APPLE_NOTARIZATION_PRIVATE_KEY }}
+          # APPLE_NOTARIZATION_ISSUER_ID: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
+          # APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
+          # APPLE_NOTARIZATION_PRIVATE_KEY: ${{ secrets.APPLE_NOTARIZATION_PRIVATE_KEY }}
         with:
           command: make copied-site
           signing_key: ${{ secrets.SIGNING_KEY }}
