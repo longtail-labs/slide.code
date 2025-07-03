@@ -200,7 +200,7 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       //     )
       // })
 
-      webContentsView.webContents.loadFile(resolve('@slide.code/app'))
+      // webContentsView.webContents.loadFile(resolve('@slide.code/app'))
 
       log.info('[FLOW] 🔧 Opening DevTools for debugging')
       webContentsView.webContents.openDevTools()
