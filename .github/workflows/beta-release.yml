@@ -101,7 +101,7 @@ jobs:
         env:
           # APPLE_ASP: ${{ secrets.APPLE_ASP }}
           # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # SITE_RELEASE_TOKEN: ${{ secrets.SITE_RELEASE_TOKEN }}
+          SITE_RELEASE_TOKEN: ${{ secrets.SITE_RELEASE_TOKEN }}
           NODE_ENV: production
           ENV: production
           MODE: beta
