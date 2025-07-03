@@ -72,9 +72,9 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@libsql/client": "^0.15.9",
     "@slide.code/main": "*",
     "dotenv": "^16.4.5",
-    "@libsql/client": "^0.15.9",
     "drizzle-orm": "^0.44.2",
     "effect": "^3.16.9"
   },
@@ -95,7 +95,7 @@
     "concurrently": "^9.2.0",
     "cross-env": "^7.0.3",
     "drizzle-kit": "^0.31.4",
-    "electron": "^36.5.0",
+    "electron": "^37.2.0",
     "eslint": "^9.29.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
