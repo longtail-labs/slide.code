@@ -28,10 +28,9 @@
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.35",
     "@aptabase/electron": "^0.3.1",
-    "@sentry/electron": "^6.8.0",
-    "@slide.code/shared": "*",
-    "@slide.code/schema": "*",
     "@slide.code/db": "*",
+    "@slide.code/schema": "*",
+    "@slide.code/shared": "*",
     "@types/chokidar": "^1.7.5",
     "chokidar": "^4.0.3",
     "electron-log": "^5.4.1",

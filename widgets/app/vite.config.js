@@ -17,7 +17,7 @@ export default defineConfig({
   root: PACKAGE_ROOT,
   envDir: PROJECT_ROOT,
   resolve: {
-    preserveSymlinks: true,
+    preserveSymlinks: false, // Allow Vite to follow symlinks to workspace packages
     alias: {
       '/@/': join(PACKAGE_ROOT, 'src') + '/',
       '@': join(PACKAGE_ROOT, 'src') + '/', // Added alias for '@'
@@ -27,14 +27,30 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    // exclude: ['@electric-sql/pglite']
-    // include: ['@polka/db', '@polka/db/schema']
-    // exclude: ['@polka/db']
+    // Exclude all workspace packages from dependency optimization to enable HMR
+    exclude: [
+      '@slide.code/clients',
+      '@slide.code/core',
+      '@slide.code/db',
+      '@slide.code/schema',
+      '@slide.code/shared',
+      '@slide.code/types',
+      '@slide.code/convex'
+    ]
   },
   base: './',
   server: {
     fs: {
-      strict: true
+      strict: false, // Allow access to workspace packages outside root
+      allow: [
+        // Explicitly allow access to the entire project root
+        PROJECT_ROOT
+      ]
+    },
+    watch: {
+      // Watch workspace packages for changes
+      ignored: ['!**/node_modules/@slide.code/**'],
+      followSymlinks: true
     }
   },
   build: {

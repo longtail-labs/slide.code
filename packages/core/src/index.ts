@@ -3,7 +3,7 @@ import * as RpcSerialization from '@effect/rpc/RpcSerialization'
 import * as RpcServer from '@effect/rpc/RpcServer'
 
 import {
-  SentryService,
+  // SentryService,
   MenuService,
   ElectronEventService,
   PostHogService,
@@ -49,7 +49,7 @@ import { ElectronProtocolLayer } from './rpc/index.js'
 const BaseServicesLayer = Layer.mergeAll(
   DefaultLoggerLayer,
   IPCRefService.Default,
-  SentryService.Default,
+  // SentryService.Default,
   PostHogService.Default,
   MenuService.Default,
   ElectronEventService.Default,
@@ -113,7 +113,7 @@ export {
 
 export { config }
 
-export { SentryService, MenuService, UpdateRef, UserRef }
+export { MenuService, UpdateRef, UserRef }
 
 // Export message system
 export * from './services/pubsub.service.js'

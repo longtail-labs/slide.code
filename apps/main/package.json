@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@slide.code/core": "*",
-    "fix-path": "^4.0.0"
+    "bufferutil": "^4.0.9",
+    "fix-path": "^4.0.0",
+    "utf-8-validate": "^6.0.5"
   }
 }

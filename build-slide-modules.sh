@@ -50,8 +50,10 @@ fi
 
 #Adding main dir
 copy_package_dist "main" "apps/main"
-copy_package_dist "core" "packages/core"
+copy_package_dist "preload" "apps/preload"
+# copy_package_dist "core" "packages/core"
 # copy_package_dist "ssr-client" "packages/ssr-client"
 copy_package_dist "app" "widgets/app"
-
+# copy_package_dist "types" "packages/types"
+ 
 echo "Done! All dist folders have been copied to node_modules_build/@slide.code" 

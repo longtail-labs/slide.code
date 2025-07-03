@@ -47,15 +47,20 @@ export default defineConfig({
         'electron',
         ...builtinModules.map((m) => `node:${m}`),
         ...builtinModules,
+        'libsql'
         // External packages that cause build issues
-        'conf',
-        'ajv-formats',
-        'electron-log',
-        '@opentelemetry/instrumentation',
-        '@opentelemetry/api',
-        'shimmer',
-        'require-in-the-middle'
+        // 'conf',
+        // 'ajv-formats',
+        // /^@libsql\/.*/
+        // 'electron-log',
+        // '@opentelemetry/instrumentation',
+        // '@opentelemetry/api',
+        // 'shimmer',
+        // 'require-in-the-middle'
       ]
     }
+  },
+  ssr: {
+    noExternal: true
   }
 })

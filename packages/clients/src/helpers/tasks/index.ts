@@ -45,8 +45,17 @@ export const getTaskWithMessages = async (taskId: string): Promise<TaskWithMessa
 // Mark a task as reviewed by the user (sets needsReview to false)
 export const markTaskReviewed = async (taskId: string): Promise<void> => {
   console.log('[TASK-HELPERS] 👁️ Marking task as reviewed:', taskId)
-  await db.update(tasks).set({ needsReview: false }).where(eq(tasks.id, taskId))
-  console.log('[TASK-HELPERS] ✅ Task marked as reviewed:', taskId)
+  const isTaskReviewed = await db.query.tasks.findFirst({
+    where: eq(tasks.id, taskId),
+    columns: {
+      needsReview: true
+    }
+  })
+  console.log('TASKNEEDSREVIEW', isTaskReviewed)
+  if (isTaskReviewed?.needsReview) {
+    await db.update(tasks).set({ needsReview: false }).where(eq(tasks.id, taskId))
+    console.log('[TASK-HELPERS] ✅ Task marked as reviewed:', taskId)
+  }
 }
 
 // Hook to list all tasks (excludes archived by default)

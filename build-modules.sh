@@ -35,8 +35,8 @@ if [ -d "node_modules" ]; then
   echo "📋 Copying specific modules from node_modules.bk to node_modules_build..."
   
   # List of modules to copy
-  # modules=("@libsql" "@neon-rs" "@trpc" "drizzle-orm" "js-base64" "libsql" "promise-limit" "ws" "zod" "koffi")
-  modules=("koffi" "kuzu")
+  modules=("@libsql" "@neon-rs" "drizzle-orm" "detect-libc" "libsql")
+  # modules=("koffi" "kuzu")
   
   # Copy each module
   for module in "${modules[@]}"; do

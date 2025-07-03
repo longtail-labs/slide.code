@@ -22,7 +22,7 @@ interface Platform {
 }
 
 // Get version from command line or use default
-const version = process.argv[2] || '0.5.0-pre.6'
+const version = process.argv[2] || '0.5.13'
 
 // Define the platforms we need
 const platforms: Platform[] = [

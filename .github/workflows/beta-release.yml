@@ -6,7 +6,7 @@ on:
     - cron: '0 3 * * *'
   push:
     branches:
-      - get-builds
+      - june-29
   # Allow manual triggering
   workflow_dispatch:
 
@@ -80,11 +80,11 @@ jobs:
         run: |
           npm run build:beta
 
-      - name: Prepare Signing Certificates
-        run: |
-          mkdir -p build
-          echo "${{ secrets.APPLE_CERT }}" | base64 --decode > build/developerID_application.cer
-          echo "${{ secrets.SPARKLE_KEY }}" | base64 --decode > sparkle.key
+      # - name: Prepare Signing Certificates
+      #   run: |
+      #     mkdir -p build
+      #     echo "${{ secrets.APPLE_CERT }}" | base64 --decode > build/developerID_application.cer
+      #     echo "${{ secrets.SPARKLE_KEY }}" | base64 --decode > sparkle.key
 
       - name: Setup build environment
         run: |
@@ -98,16 +98,19 @@ jobs:
       - name: Run Conveyor for Beta Build
         uses: hydraulic-software/conveyor/actions/build@v18.1
         env:
-          APPLE_ASP: ${{ secrets.APPLE_ASP }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SITE_RELEASE_TOKEN: ${{ secrets.SITE_RELEASE_TOKEN }}
+          # APPLE_ASP: ${{ secrets.APPLE_ASP }}
+          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # SITE_RELEASE_TOKEN: ${{ secrets.SITE_RELEASE_TOKEN }}
           NODE_ENV: production
           ENV: production
           MODE: beta
           BUILD_VERSION: ${{ needs.generate-version.outputs.beta_version }}
+          APPLE_NOTARIZATION_ISSUER_ID: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
+          APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
+          APPLE_NOTARIZATION_PRIVATE_KEY: ${{ secrets.APPLE_NOTARIZATION_PRIVATE_KEY }}
         with:
           command: make copied-site
-          signing_key: ${{ secrets.SIGNING_KEY }}
+          # signing_key: ${{ secrets.SIGNING_KEY }}
           extra_flags: -f conveyor.beta.conf
           agree_to_license: 1
 

@@ -13,6 +13,7 @@
     "format": "npx prettier --check \"**/*.{js,mjs,cjs,ts,mts,cts,vue,json}\""
   },
   "dependencies": {
-    "@slide.code/types": "*"
+    "@slide.code/types": "*",
+    "effect": "^3.16.11"
   }
 }

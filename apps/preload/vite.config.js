@@ -39,11 +39,16 @@ const config = defineConfig({
         ...builtinModules,
         ...builtinModules.map((m) => `node:${m}`),
         // ...Object.keys(dependencies || {}),
+        // 'effect',
         'electron'
       ]
     },
     emptyOutDir: true,
     reportCompressedSize: false
+  },
+  ssr: {
+    noExternal: true,
+    external: ['electron']
   }
 })
 

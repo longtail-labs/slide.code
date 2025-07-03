@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { FromClientEncoded, FromServerEncoded } from '@effect/rpc/RpcMessage'
 import { RPC_CHANNELS } from '@slide.code/types'
 
 /**

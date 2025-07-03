@@ -15,8 +15,12 @@ import type {
   ChatMessageInsert
 } from '@slide.code/schema'
 import { randomUUID } from 'crypto'
+import log from 'electron-log'
+import { existsSync } from 'fs'
+import path from 'path'
 
-const dbLogger = console.log
+// Use electron-log for database logging
+const dbLogger = (...args: any[]) => log.info('[DB]', ...args)
 
 /**
  * Schema for Database configuration
@@ -59,21 +63,50 @@ export class DatabaseService extends Effect.Service<DatabaseService>()('Database
     const initialize = (config: DatabaseConfig) =>
       Effect.try({
         try: () => {
-          dbLogger('Initializing database service with dataDir:', config.dataDir)
+          dbLogger('🔄 Starting database initialization')
+          dbLogger('📁 Data directory:', config.dataDir)
+          dbLogger('📂 Migrations directory:', config.migrationsDir || 'using default')
+          dbLogger('💾 In memory mode:', config.inMemory || false)
+
           dataDir = config.dataDir
           migrationsDir = config.migrationsDir || getDrizzleFolder()
 
+          dbLogger('📂 Final migrations directory:', migrationsDir)
+
+          // Validate directories exist
+          dbLogger('🔍 Validating data directory exists:', dataDir)
+          // if (!existsSync(dataDir)) {
+          //   dbLogger('❌ Data directory does not exist:', dataDir)
+          //   throw new Error(`Data directory does not exist: ${dataDir}`)
+          // }
+          dbLogger('✅ Data directory exists')
+
+          dbLogger('🔍 Validating migrations directory exists:', migrationsDir)
+          // if (!existsSync(migrationsDir)) {
+          //   dbLogger('❌ Migrations directory does not exist:', migrationsDir)
+          //   throw new Error(`Migrations directory does not exist: ${migrationsDir}`)
+          // }
+          dbLogger('✅ Migrations directory exists')
+
+          dbLogger('🔗 Creating database connection...')
+
           // Initialize database client
           const { db, tursoClient } = createDatabase(dataDir)
+          dbLogger('✅ Database connection created successfully')
+
           _db = db
           _tursoClient = tursoClient
 
           initialized = true
+          dbLogger('✅ Database service initialized successfully')
           return true
         },
         catch: (error) => {
           const errorMessage = error instanceof Error ? error.message : String(error)
-          dbLogger('Failed to initialize database service:', errorMessage)
+          dbLogger('❌ Failed to initialize database service:', errorMessage)
+          if (error instanceof Error) {
+            dbLogger('❌ Error stack:', error.stack)
+          }
           return new DatabaseServiceError(`Failed to initialize database: ${errorMessage}`)
         }
       })
@@ -83,21 +116,34 @@ export class DatabaseService extends Effect.Service<DatabaseService>()('Database
      */
     const initAndMigrate = (config: DatabaseConfig) =>
       Effect.gen(function* () {
-        console.log('INITTING DB', config)
-        // First initialize the database
-        yield* initialize(config)
+        dbLogger('🚀 Starting database initialization and migration process')
+        dbLogger('⚙️ Config received:', JSON.stringify(config, null, 2))
 
-        // Then run migrations
-        dbLogger('Running migrations as part of initialization')
-        const migrateResult = yield* setupDatabase
+        try {
+          // First initialize the database
+          dbLogger('🔄 Step 1: Initializing database service')
+          yield* initialize(config)
+          dbLogger('✅ Step 1 completed: Database service initialized')
 
-        if (!migrateResult) {
-          return yield* Effect.fail(
-            new DatabaseServiceError('Failed to run migrations during initialization')
-          )
+          // Then run migrations
+          dbLogger('🔄 Step 2: Running database migrations')
+          const migrateResult = yield* setupDatabase
+          dbLogger('🔍 Migration result:', migrateResult)
+
+          if (!migrateResult) {
+            dbLogger('❌ Migration failed - result was false')
+            return yield* Effect.fail(
+              new DatabaseServiceError('Failed to run migrations during initialization')
+            )
+          }
+
+          dbLogger('✅ Step 2 completed: Database migrations successful')
+          dbLogger('🎉 Database initialization and migration process completed successfully')
+          return true
+        } catch (error) {
+          dbLogger('❌ Error during initAndMigrate:', error)
+          throw error
         }
-
-        return true
       })
 
     /**
@@ -105,25 +151,36 @@ export class DatabaseService extends Effect.Service<DatabaseService>()('Database
      */
     const setupDatabase = Effect.tryPromise({
       try: async () => {
+        dbLogger('🔄 Starting database setup (migrations)')
+
         if (!initialized) {
-          dbLogger('Database service not initialized')
+          dbLogger('❌ Database service not initialized - cannot run migrations')
           return false
         }
 
+        dbLogger('✅ Database service is initialized, proceeding with migrations')
+        dbLogger('📂 Migrations directory:', migrationsDir)
+
         try {
-          dbLogger('Running migrations from', migrationsDir)
+          dbLogger('🔄 Calling drizzle migrate function...')
           await migrate(_db, {
             migrationsFolder: migrationsDir
           })
-          dbLogger('Database setup completed successfully')
+          dbLogger('✅ Drizzle migrate function completed successfully')
+          dbLogger('🎉 Database setup completed successfully')
           return true
         } catch (error) {
-          dbLogger('Failed to set up database:', error)
+          dbLogger('❌ Failed to set up database:', error)
+          if (error instanceof Error) {
+            dbLogger('❌ Migration error details:', error.message)
+            dbLogger('❌ Migration error stack:', error.stack)
+          }
           throw error
         }
       },
       catch: (error) => {
         const errorMessage = error instanceof Error ? error.message : String(error)
+        dbLogger('❌ Effect.tryPromise caught error:', errorMessage)
         return new DatabaseServiceError(`Failed to set up database: ${errorMessage}`)
       }
     })

@@ -28,22 +28,25 @@ const resolve = require.resolve
 export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message) =>
   Effect.gen(function* () {
     yield* Effect.logInfo('🚀 Starting AppLaunchedFlow - Creating BaseWindow', message._tag)
-    log.info('[APP-FLOW] 🚀 Starting AppLaunchedFlow - Creating BaseWindow')
+    log.info('[FLOW] 🚀 AppLaunchedFlow triggered with message:', message._tag)
+    log.info('[FLOW] 📱 Starting BaseWindow creation process')
 
     // Test Database Service
     yield* Effect.logInfo('🗄️ Testing DatabaseService')
-    log.info('[APP-FLOW] 🗄️ Testing DatabaseService')
+    log.info('[FLOW] 🗄️ Beginning DatabaseService test')
     try {
       const dbService = yield* DatabaseService
+      log.info('[FLOW] ✅ DatabaseService instance obtained')
 
       const projects = yield* dbService.getProjects()
+      log.info('[FLOW] 📊 Projects fetched from database, count:', projects.length)
 
       console.log('!!!PROJECTS', projects)
 
       // Clear existing data for clean test
       // yield* Effect.sync(() => tasks.removeMany({}))
       // yield* Effect.sync(() => chatMessages.removeMany({}))
-      log.info('[APP-FLOW] 🗄️ Cleared existing tasks and messages')
+      log.info('[FLOW] 🗄️ Cleared existing tasks and messages')
 
       // Create test task using helper function
       // const testTask: TaskInsert = {
@@ -90,50 +93,55 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       // }
 
       yield* Effect.logInfo('🗄️ Database test completed successfully')
-      log.info('[APP-FLOW] 🗄️ Database test completed successfully')
+      log.info('[FLOW] ✅ DatabaseService test completed successfully')
     } catch (dbError) {
       yield* Effect.logError('🗄️ Error during database test', dbError)
-      log.error('[APP-FLOW] 🗄️ Database test error:', dbError)
+      log.error('[FLOW] ❌ DatabaseService test failed:', dbError)
     }
 
     // Get services for testing
+    log.info('[FLOW] 🛠️ Obtaining services for testing')
     const pubsub = yield* PubSubClient
     const userRef = yield* UserRef
+    log.info('[FLOW] ✅ Services obtained successfully')
 
     // Test Claude Code service configuration and detect executable
     yield* Effect.logInfo('🤖 Testing Claude Code service configuration')
-    log.info('[APP-FLOW] 🤖 Testing Claude Code service in app flow')
+    log.info('[FLOW] 🤖 Starting Claude Code service configuration test')
 
     // First, try to detect and configure Claude executable
     yield* Effect.logInfo('🤖 Attempting to detect Claude executable')
-    log.info('[APP-FLOW] 🤖 Starting Claude executable detection')
+    log.info('[FLOW] 🔍 Beginning Claude executable detection')
 
     try {
       const detectedPath = yield* findClaudeCodeExecutable
       if (detectedPath) {
         yield* Effect.logInfo(`🤖 Successfully detected Claude at: ${detectedPath}`)
         yield* userRef.updateClaudeCodeExecutablePath(detectedPath)
-        log.info(`[APP-FLOW] 🤖 Claude executable detected and configured: ${detectedPath}`)
+        log.info('[FLOW] ✅ Claude executable detected and configured:', detectedPath)
       } else {
         yield* Effect.logWarning('🤖 Could not detect Claude executable automatically')
-        log.warn('[APP-FLOW] 🤖 Claude executable detection failed - may need manual configuration')
+        log.warn(
+          '[FLOW] ⚠️ Claude executable detection failed - manual configuration may be needed'
+        )
       }
     } catch (detectionError) {
       yield* Effect.logError('🤖 Error during Claude executable detection', detectionError)
-      log.error('[APP-FLOW] 🤖 Claude executable detection error:', detectionError)
+      log.error('[FLOW] ❌ Claude executable detection error:', detectionError)
     }
 
     const userState = yield* userRef.ref.get()
     const claudeConfig = userState.claudeCode
     yield* Effect.logInfo('🤖 Current Claude Code config', claudeConfig)
-    log.info('[APP-FLOW] 🤖 Claude Code working directory:', userState.vibeDirectory)
+    log.info('[FLOW] 📁 Claude Code working directory:', userState.vibeDirectory)
     log.info(
-      '[APP-FLOW] 🤖 Claude Code executable path:',
+      '[FLOW] 🔧 Claude Code executable path:',
       claudeConfig?.executablePath || 'not configured'
     )
 
     try {
       // Create the BaseWindow with appropriate options
+      log.info('[FLOW] 🏗️ Creating BaseWindow with configuration')
       const baseWindow = new BaseWindow({
         width: 1200,
         height: 800,
@@ -142,8 +150,10 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
         show: true, // Don't show until ready
         titleBarStyle: 'hiddenInset'
       })
+      log.info('[FLOW] ✅ BaseWindow created successfully')
 
       // Create a WebContentsView to load the app
+      log.info('[FLOW] 🌐 Creating WebContentsView')
       const webContentsView = new WebContentsView({
         webPreferences: {
           preload: resolve('@slide.code/preload'),
@@ -157,35 +167,52 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
           experimentalFeatures: true
         }
       })
+      log.info('[FLOW] ✅ WebContentsView created successfully')
 
       // Add the view to the window
+      log.info('[FLOW] 🔗 Adding WebContentsView to BaseWindow')
       baseWindow.contentView.addChildView(webContentsView)
 
       // Set the view bounds to fill the entire window
       const { width, height } = baseWindow.getBounds()
       webContentsView.setBounds({ x: 0, y: 0, width, height })
+      log.info('[FLOW] 📐 WebContentsView bounds set:', { width, height })
 
       // Load the app HTML file using the WebContentsView
-      yield* Effect.if(process.env.MODE === 'development' && !!process.env.VITE_DEV_SERVER_URL, {
-        onTrue: () =>
-          Effect.promise(() =>
-            webContentsView.webContents.loadURL(process.env.VITE_DEV_SERVER_URL!)
-          ).pipe(Effect.tap(() => Effect.logInfo('Loaded from Vite Dev Server'))),
-        onFalse: () =>
-          Effect.promise(() =>
-            webContentsView.webContents.loadFile(resolve('@slide.code/app'))
-          ).pipe(Effect.tap(() => Effect.logInfo('Loaded from file')))
-      })
+      log.info('[FLOW] 🔄 Loading application content')
+      log.info('[FLOW] 🔧 Environment - MODE:', process.env.MODE)
+      log.info('[FLOW] 🔧 Environment - VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL)
 
-      // webContentsView.webContents.loadFile(resolve('@slide.code/app'))
+      // yield* Effect.if(process.env.MODE === 'development' && !!process.env.VITE_DEV_SERVER_URL, {
+      //   onTrue: () =>
+      //     Effect.promise(() =>
+      //       webContentsView.webContents.loadURL(process.env.VITE_DEV_SERVER_URL!)
+      //     ).pipe(
+      //       Effect.tap(() => Effect.logInfo('Loaded from Vite Dev Server')),
+      //       Effect.tap(() => log.info('[FLOW] ✅ Content loaded from Vite Dev Server'))
+      //     ),
+      //   onFalse: () =>
+      //     Effect.promise(() =>
+      //       webContentsView.webContents.loadFile(resolve('@slide.code/app'))
+      //     ).pipe(
+      //       Effect.tap(() => Effect.logInfo('Loaded from file')),
+      //       Effect.tap(() => log.info('[FLOW] ✅ Content loaded from file'))
+      //     )
+      // })
 
+      webContentsView.webContents.loadFile(resolve('@slide.code/app'))
+
+      log.info('[FLOW] 🔧 Opening DevTools for debugging')
       webContentsView.webContents.openDevTools()
 
       // Sleep briefly to ensure window is ready
+      log.info('[FLOW] ⏳ Waiting 5 seconds for window to be ready')
       yield* Effect.sleep(Duration.millis(5000))
       console.log('MARKING APP READY')
+      log.info('[FLOW] ✅ Window ready, marking app as ready')
 
       yield* markAppReady
+      log.info('[FLOW] ✅ App marked as ready successfully')
 
       // Test TaskStartListener after app is ready
       // yield* Effect.fork(
@@ -254,7 +281,7 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
 
       // Handle window closed event and cleanup WebContentsView
       baseWindow.on('closed', () => {
-        log.info('[APP-FLOW] BaseWindow closed, cleaning up WebContentsView')
+        log.info('[FLOW] BaseWindow closed, cleaning up WebContentsView')
         if (!webContentsView.webContents.isDestroyed()) {
           webContentsView.webContents.close()
         }
@@ -267,11 +294,11 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       })
 
       yield* Effect.logInfo('BaseWindow created and app loaded successfully')
-      log.info('[APP-FLOW] BaseWindow created and app loaded successfully')
+      log.info('[FLOW] ✅ BaseWindow created and app loaded successfully')
 
       // Simplified communication systems test function
       const testCommunicationSystemsSimple = () => {
-        log.info('[APP-FLOW] 🧪 Starting simplified communication systems test')
+        log.info('[FLOW] 🧪 Starting simplified communication systems test')
 
         // 1. Test IPCRef - App Ready State
         // setTimeout(() => {
@@ -292,68 +319,68 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
 
         // 2. Test PubSub - Publish various messages
         setTimeout(() => {
-          log.info('[APP-FLOW] 📢 Testing PubSub - Publishing messages')
+          log.info('[FLOW] 📢 Testing PubSub - Publishing messages')
 
           Effect.runPromise(
             pubsub.publish(createSetWindowTitle('SlideCode - Communication Test Active'))
           )
             .then(() => {
-              log.info('[APP-FLOW] 📢 Published SetWindowTitle message')
+              log.info('[FLOW] 📢 Published SetWindowTitle message')
             })
             .catch((error) => {
-              log.error('[APP-FLOW] ❌ Error publishing SetWindowTitle:', error)
+              log.error('[FLOW] ❌ Error publishing SetWindowTitle:', error)
             })
 
           setTimeout(() => {
             Effect.runPromise(pubsub.publish(createGetAppInfo(true)))
               .then(() => {
-                log.info('[APP-FLOW] 📢 Published GetAppInfo message')
+                log.info('[FLOW] 📢 Published GetAppInfo message')
               })
               .catch((error) => {
-                log.error('[APP-FLOW] ❌ Error publishing GetAppInfo:', error)
+                log.error('[FLOW] ❌ Error publishing GetAppInfo:', error)
               })
           }, 1000)
 
           setTimeout(() => {
             Effect.runPromise(pubsub.publish(createShowUpdateDialog(false)))
               .then(() => {
-                log.info('[APP-FLOW] 📢 Published ShowUpdateDialog message')
+                log.info('[FLOW] 📢 Published ShowUpdateDialog message')
               })
               .catch((error) => {
-                log.error('[APP-FLOW] ❌ Error publishing ShowUpdateDialog:', error)
+                log.error('[FLOW] ❌ Error publishing ShowUpdateDialog:', error)
               })
           }, 2000)
 
           // Test query invalidation
           setTimeout(() => {
-            log.info('[APP-FLOW] 🔄 Testing query invalidation from main process')
+            log.info('[FLOW] 🔄 Testing query invalidation from main process')
             const queryInvalidationMessage = createInvalidateQuery(['test-query-from-main'])
             Effect.runPromise(pubsub.publish(queryInvalidationMessage))
               .then(() => {
                 log.info(
-                  '[APP-FLOW] 🔄 Published query invalidation message:',
+                  '[FLOW] 🔄 Published query invalidation message:',
                   queryInvalidationMessage
                 )
               })
               .catch((error) => {
-                log.error('[APP-FLOW] ❌ Error publishing query invalidation:', error)
+                log.error('[FLOW] ❌ Error publishing query invalidation:', error)
               })
           }, 3000)
         }, 3000)
 
         // 3. Test periodic PubSub messages
         setTimeout(() => {
-          log.info('[APP-FLOW] 🔄 Starting periodic PubSub messages test')
+          log.info('[FLOW] 🔄 Starting periodic PubSub messages test')
 
           setInterval(() => {
             const timestamp = new Date().toLocaleTimeString()
             const periodicMessage = createSetWindowTitle(`SlideCode - Periodic Test ${timestamp}`)
             Effect.runPromise(pubsub.publish(periodicMessage))
               .then(() => {
-                log.info('[APP-FLOW] 🔄 Published periodic PubSub message')
+                log.info('[FLOW] 🔄 Published periodic PubSub message')
               })
               .catch((error) => {
-                log.error('[APP-FLOW] 🔄 Error publishing periodic message:', error)
+                log.error('[FLOW] 🔄 Error publishing periodic message:', error)
               })
           }, 10000)
 
@@ -364,23 +391,23 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
             Effect.runPromise(pubsub.publish(periodicQueryInvalidation))
               .then(() => {
                 log.info(
-                  '[APP-FLOW] 🔄 Published periodic query invalidation:',
+                  '[FLOW] 🔄 Published periodic query invalidation:',
                   periodicQueryInvalidation
                 )
               })
               .catch((error) => {
-                log.error('[APP-FLOW] 🔄 Error publishing periodic query invalidation:', error)
+                log.error('[FLOW] 🔄 Error publishing periodic query invalidation:', error)
               })
           }, 15000) // Every 15 seconds for query invalidation
         }, 5000)
 
-        log.info('[APP-FLOW] 🧪 All communication systems tests initiated')
+        log.info('[FLOW] 🧪 All communication systems tests initiated')
       }
 
       return true
     } catch (error) {
       yield* Effect.logError(`Error creating BaseWindow: ${error}`)
-      log.error('[APP-FLOW] Error creating BaseWindow:', error)
+      log.error('[FLOW] ❌ Error creating BaseWindow:', error)
       return Effect.fail(`Failed to create BaseWindow: ${error}`)
     }
   })

@@ -95,9 +95,8 @@ export function getDatabasePath(inMemory?: boolean): string {
 
   // Always use userData path in production/packaged mode
   if (isPackaged()) {
-    const userDataPath = app.getPath('userData')
+    return app.getPath('userData')
     // pathsLogger.info('Production: using userData path:', userDataPath)
-    return path.join(userDataPath, 'slide')
   }
 
   // In development, use the configured path or fallback
@@ -108,9 +107,7 @@ export function getDatabasePath(inMemory?: boolean): string {
   }
 
   // Fallback path
-  const fallbackPath = path.join(app.getPath('userData'), 'slide')
-  // pathsLogger.info('Using fallback path:', fallbackPath)
-  return fallbackPath
+  return path.join(app.getPath('userData'), 'slide')
 }
 
 export function getVibeDir(): string {
