@@ -81,11 +81,12 @@ jobs:
         run: |
           npm run build:beta
 
-      # - name: Prepare Signing Certificates
-      #   run: |
-      #     mkdir -p build
-      #     echo "${{ secrets.APPLE_CERT }}" | base64 --decode > build/developerID_application.cer
-      #     echo "${{ secrets.SPARKLE_KEY }}" | base64 --decode > sparkle.key
+      - name: Prepare Signing Certificates
+        run: |
+          mkdir -p build
+          # echo "${{ secrets.APPLE_CERT }}" | base64 --decode > build/developerID_application.cer
+          # echo "${{ secrets.SPARKLE_KEY }}" | base64 --decode > sparkle.key
+          echo "${{ secrets.APPLE_NOTARIZATION_PRIVATE_KEY }}" > AuthKey_W442ZA3W3A.p8
 
       - name: Setup build environment
         run: |
