@@ -20,20 +20,20 @@ index 9ac15cc..f4850dd 100644
        target = "linux-arm-musleabihf";
    }
 +
-+  // Check for bundled modules first
++  // Check for Resources first, then bundled modules
 +  try {
-+    // Try bundled_modules path first
-+    let bundledPath = path.join(__dirname, "..", "..", "bundled_modules", "libsql", target, "index.node");
-+    
-+    // If not found and we have resourcesPath, try that
-+    if (!fs.existsSync(bundledPath) && process.resourcesPath) {
-+      const resourcePath = path.join(process.resourcesPath, "bundled_modules", "libsql", target, "index.node");
++    // First priority: Resources path (for packaged apps)
++    if (process.resourcesPath) {
++      const resourcePath = path.join(process.resourcesPath, "libsql", target, "index.node");
 +      if (fs.existsSync(resourcePath)) {
-+        bundledPath = resourcePath;
++        const nativeModule = { exports: {} };
++        process.dlopen(nativeModule, resourcePath);
++        return nativeModule.exports;
 +      }
 +    }
 +    
-+    // If bundled module exists, load it directly
++    // Second priority: bundled_modules path (for development)
++    const bundledPath = path.join(__dirname, "..", "..", "bundled_modules", "libsql", target, "index.node");
 +    if (fs.existsSync(bundledPath)) {
 +      const nativeModule = { exports: {} };
 +      process.dlopen(nativeModule, bundledPath);
