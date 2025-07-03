@@ -18,7 +18,6 @@ interface ImportMetaEnv {
    * This variable is initialized in scripts/watch.ts
    */
   readonly VITE_DEV_SERVER_URL: undefined | string
-  readonly VITE_OPENAI_API_KEY: undefined | string
   readonly DATABASE_URL: undefined | string
 }
 
