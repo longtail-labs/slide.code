@@ -200,10 +200,10 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       //     )
       // })
 
-      // webContentsView.webContents.loadFile(resolve('@slide.code/app'))
+      webContentsView.webContents.loadFile(resolve('@slide.code/app'))
 
       log.info('[FLOW] 🔧 Opening DevTools for debugging')
-      webContentsView.webContents.openDevTools()
+      // webContentsView.webContents.openDevTools()
 
       // Sleep briefly to ensure window is ready
       log.info('[FLOW] ⏳ Waiting 5 seconds for window to be ready')
