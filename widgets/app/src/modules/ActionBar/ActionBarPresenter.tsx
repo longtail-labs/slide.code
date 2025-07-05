@@ -109,12 +109,16 @@ const ActionBarPresenter = ({
     if (projectId === 'new') {
       setIsNewProjectDialogOpen(true)
     } else if (projectId === 'select') {
-      // Open folder picker
+      // Use the new Electron dialog-based directory selection
       if (onSelectExistingProject) {
-        const newProjectId = await onSelectExistingProject()
-        if (newProjectId) {
-          setSelectedProject(newProjectId)
-          setAttachmentType('project')
+        try {
+          const newProjectId = await onSelectExistingProject()
+          if (newProjectId) {
+            setSelectedProject(newProjectId)
+            setAttachmentType('project')
+          }
+        } catch (error) {
+          console.error('Failed to select project:', error)
         }
       }
     } else {
@@ -215,25 +219,32 @@ const ActionBarPresenter = ({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Label
-                  htmlFor="worktree-checkbox"
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer has-[[aria-checked=true]]:border-blue-600 has-[[aria-checked=true]]:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Checkbox
-                    id="worktree-checkbox"
-                    checked={newWorktreeBranch}
-                    onCheckedChange={(checked) => setNewWorktreeBranch(checked === true)}
-                    disabled={isLoading}
-                    className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white"
-                  />
-                  <IconGitBranch className="h-4 w-4" />
-                  <span className="font-medium text-sm">New Worktree branch</span>
-                </Label>
+                <div className="relative inline-block">
+                  <Label
+                    htmlFor="worktree-checkbox"
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 cursor-not-allowed opacity-30 pointer-events-none"
+                  >
+                    <Checkbox
+                      id="worktree-checkbox"
+                      checked={false}
+                      onCheckedChange={() => {}}
+                      disabled={true}
+                      className="data-[state=checked]:border-[#CB661C] data-[state=checked]:bg-[#CB661C] data-[state=checked]:text-white"
+                    />
+                    <IconGitBranch className="h-4 w-4" />
+                    <span className="font-medium text-sm">New Worktree branch</span>
+                  </Label>
+                  <div className="absolute -top-2 -right-2 z-10">
+                    <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                      Coming Soon
+                    </span>
+                  </div>
+                </div>
               </TooltipTrigger>
               <TooltipContent>
                 <p>
-                  This creates a separate worktree branch so you can run multiple agents on the same
-                  codebase without interfering
+                  This feature is coming soon! It will create a separate worktree branch so you can
+                  run multiple agents on the same codebase without interfering
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -258,7 +269,8 @@ const ActionBarPresenter = ({
           <DialogHeader>
             <DialogTitle>Create New Project</DialogTitle>
             <DialogDescription>
-              Enter a name for your new project. This will create a new workspace for your tasks.
+              Enter a name for your new project. This will create a folder for a new project to work
+              in.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">

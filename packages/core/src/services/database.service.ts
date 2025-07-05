@@ -572,6 +572,31 @@ export class DatabaseService extends Effect.Service<DatabaseService>()('Database
         }
       })
 
+    const getLatestUserPromptForTask = (taskId: string) =>
+      Effect.tryPromise({
+        try: async () => {
+          if (!initialized) {
+            throw new Error('Database service not initialized')
+          }
+
+          const result = await _db.query.chatMessages.findFirst({
+            where: and(
+              eq(schema.schema.chatMessages.taskId, taskId),
+              eq(schema.schema.chatMessages.type, 'prompt')
+            ),
+            orderBy: [desc(schema.schema.chatMessages.createdAt)]
+          })
+          return result
+        },
+        catch: (error) => {
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          dbLogger('Failed to get latest user prompt for task:', errorMessage)
+          return new DatabaseServiceError(
+            `Failed to get latest user prompt for task: ${errorMessage}`
+          )
+        }
+      })
+
     const removeChatMessage = (id: string) =>
       Effect.tryPromise({
         try: async () => {
@@ -678,6 +703,7 @@ export class DatabaseService extends Effect.Service<DatabaseService>()('Database
       getChatMessage,
       getChatMessagesForTask,
       getLatestSessionIdForTask,
+      getLatestUserPromptForTask,
       removeChatMessage,
       // Utility
       isInitialized,

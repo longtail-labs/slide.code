@@ -19,6 +19,7 @@ import { spawn } from 'node:child_process'
 import { getDefaultProjectsDir, getVibeDir } from '@slide.code/shared'
 import { ensureDirectory, sanitizePathName } from '../utils/filesystem.util.js'
 import { GitRepoTag, makeGitRepo } from '../resources/GitRepo/git-repo.resource.js'
+import { dialog } from 'electron'
 // import { ProjectRepository } from '@slide.code/db/repositories/projectRepository.js'
 
 // Utility function to format database results for Drizzle
@@ -367,78 +368,92 @@ export const SlideLive = SlideRpcs.toLayer(
       //   })
       // },
 
-      // // Project handlers
-      // ListProjects: () => {
-      //   console.log('[RPC-HANDLER] 🔧 ListProjects called')
-      //   return Effect.sync(() => {
-      //     const { projects } = dbService.collections
-      //     const allProjects = projects.find({}).fetch()
-      //     console.log('[RPC-HANDLER] 🔧 ListProjects found projects:', allProjects)
-      //     return allProjects.map(
-      //       (projectModel) =>
-      //         new Project({
-      //           id: projectModel.id,
-      //           name: projectModel.name,
-      //           path: projectModel.path,
-      //           createdAt: projectModel.createdAt,
-      //           updatedAt: projectModel.updatedAt
-      //         })
-      //     )
-      //   })
-      // },
-      // GetProject: ({ projectId }) => {
-      //   console.log('[RPC-HANDLER] 🔧 GetProject called with id:', projectId)
-      //   return Effect.sync(() => {
-      //     const { projects } = dbService.collections
-      //     const projectModel = projects.findOne({ id: projectId })
-      //     if (!projectModel) {
-      //       throw new Error(`Project not found: ${projectId}`)
-      //     }
-      //     console.log('[RPC-HANDLER] 🔧 GetProject returning project:', projectModel)
-      //     return new Project({
-      //       id: projectModel.id,
-      //       name: projectModel.name,
-      //       path: projectModel.path,
-      //       createdAt: projectModel.createdAt,
-      //       updatedAt: projectModel.updatedAt
-      //     })
-      //   })
-      // },
-      // UpdateProject: ({ projectId, name, path }) => {
-      //   console.log('[RPC-HANDLER] 🔧 UpdateProject called with:', { projectId, name, path })
-      //   return Effect.sync(() => {
-      //     const { projects } = dbService.collections
-      //     const currentProject = projects.findOne({ id: projectId })
-      //     if (!currentProject) {
-      //       throw new Error(`Project not found: ${projectId}`)
-      //     }
-
-      //     const updateData: any = {}
-      //     if (name !== undefined) updateData.name = name
-      //     if (path !== undefined) updateData.path = path
-
-      //     projects.updateOne({ id: projectId }, { $set: updateData })
-      //     const updatedProject = projects.findOne({ id: projectId })!
-      //     return new Project({
-      //       id: updatedProject.id,
-      //       name: updatedProject.name,
-      //       path: updatedProject.path,
-      //       createdAt: updatedProject.createdAt,
-      //       updatedAt: updatedProject.updatedAt
-      //     })
-      //   })
-      // },
-      // DeleteProject: ({ projectId }) => {
-      //   console.log('[RPC-HANDLER] 🔧 DeleteProject called with id:', projectId)
-      //   return Effect.sync(() => {
-      //     const { projects } = dbService.collections
-      //     const result = projects.removeOne({ id: projectId })
-      //     console.log('[RPC-HANDLER] 🔧 DeleteProject result:', result)
-      //     return result > 0
-      //   })
-      // },
-
       // Project operations
+      AddProject: ({ path: projectPath }) => {
+        console.log('[RPC-HANDLER] 🔧 AddProject called with path:', projectPath)
+        return Effect.gen(function* () {
+          // Use Node.js path.basename to extract project name properly
+          const projectName = path.basename(projectPath)
+
+          console.log('[RPC-HANDLER] 🔧 Extracted project name:', projectName)
+
+          // Ensure the project directory is a git repository
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const gitRepo = yield* makeGitRepo({
+                repoPath: projectPath,
+                branchName: 'master',
+                useWorktree: false,
+                autoInit: true // Initialize git if not already present
+              })
+
+              console.log('[RPC-HANDLER] 🔧 Git repository ensured at:', projectPath)
+            })
+          )
+
+          // Create the project in the database
+          const projectData = {
+            name: projectName,
+            path: projectPath
+          }
+
+          const createdProject = yield* dbService.createProject(projectData)
+          console.log('[RPC-HANDLER] 🔧 Project added to database:', createdProject.id)
+
+          // Create and broadcast strongly-typed invalidation message
+          const projectListQueryKey = createProjectListInvalidation()
+          const invalidateMessage = createTypedInvalidateQuery(projectListQueryKey)
+          yield* pubsubClient.publish(invalidateMessage)
+          console.log('[RPC-HANDLER] 🔧 Broadcasted strongly-typed project invalidation message')
+
+          // Convert to RPC Project format
+          return new Project({
+            id: createdProject.id,
+            name: createdProject.name,
+            path: createdProject.path,
+            createdAt: new Date(createdProject.createdAt),
+            updatedAt: new Date(createdProject.updatedAt)
+          })
+        }).pipe(
+          Effect.catchAll((error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ AddProject error:', errorMessage)
+            return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      SelectProjectDirectory: () => {
+        console.log('[RPC-HANDLER] 📁 SelectProjectDirectory called')
+        return Effect.tryPromise({
+          try: async (): Promise<string | null> => {
+            const result = await dialog.showOpenDialog({
+              properties: ['openDirectory'],
+              title: 'Select Project Directory'
+            })
+
+            if (result.canceled || result.filePaths.length === 0) {
+              console.log('[RPC-HANDLER] 📁 Directory selection cancelled')
+              return null
+            }
+
+            const selectedPath = result.filePaths[0]
+            if (!selectedPath) {
+              console.log('[RPC-HANDLER] 📁 No directory path received')
+              return null
+            }
+
+            console.log('[RPC-HANDLER] 📁 Directory selected:', selectedPath)
+            return selectedPath
+          },
+          catch: (error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ SelectProjectDirectory error:', errorMessage)
+            return errorMessage
+          }
+        })
+      },
+
       CreateProject: ({ name }) => {
         console.log('[RPC-HANDLER] 🔧 CreateProject called with name:', name)
         return Effect.gen(function* () {
@@ -659,6 +674,21 @@ export const SlideLive = SlideRpcs.toLayer(
 
           console.log('[RPC-HANDLER] 🔄 Committing changes for project:', project.path)
 
+          // Get the latest user prompt for the commit message
+          const latestPrompt = yield* dbService.getLatestUserPromptForTask(taskId)
+          let commitMessage = task.name // Default to task name
+
+          if (latestPrompt && latestPrompt.event && latestPrompt.event.type === 'prompt') {
+            // Extract the content from the prompt event
+            const promptEvent = latestPrompt.event as any
+            if (promptEvent.content) {
+              commitMessage = promptEvent.content
+              console.log('[RPC-HANDLER] 🔄 Using latest user prompt as commit message')
+            }
+          }
+
+          console.log('[RPC-HANDLER] 🔄 Commit message:', commitMessage)
+
           // Initialize git repo and commit changes
           yield* Effect.scoped(
             Effect.gen(function* () {
@@ -672,8 +702,8 @@ export const SlideLive = SlideRpcs.toLayer(
               // Add all changes
               yield* gitRepo.add('.')
 
-              // Use the task name as commit message
-              yield* gitRepo.commit(task.name)
+              // Use the latest user prompt as commit message, fallback to task name
+              yield* gitRepo.commit(commitMessage)
 
               console.log('[RPC-HANDLER] 🔄 Changes committed successfully')
             })

@@ -158,6 +158,15 @@ export class SlideRpcs extends RpcGroup.make(
     error: Schema.String,
     payload: { name: Schema.String }
   }),
+  Rpc.make('AddProject', {
+    success: Project,
+    error: Schema.String,
+    payload: { path: Schema.String }
+  }),
+  Rpc.make('SelectProjectDirectory', {
+    success: Schema.Union(Schema.String, Schema.Null), // Return directory path or null if cancelled
+    error: Schema.String
+  }),
   Rpc.make('StartTask', {
     success: Schema.String, // Return task ID
     error: Schema.String,

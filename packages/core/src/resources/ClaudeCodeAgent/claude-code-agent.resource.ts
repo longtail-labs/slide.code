@@ -8,9 +8,11 @@ import {
   Cause,
   Exit,
   Layer,
-  Context
+  Context,
+  Option,
+  Chunk
 } from 'effect'
-import { query, type SDKMessage } from '@anthropic-ai/claude-code'
+import { query, type SDKMessage, type SDKSystemMessage } from '@anthropic-ai/claude-code'
 import { SdkMessage } from '@slide.code/schema'
 import {
   ClaudeCodeConfig,
@@ -18,6 +20,8 @@ import {
   defaultClaudeCodeConfig
 } from '../../types/claude-code.types.js'
 import log from 'electron-log'
+import { ensureDirectory } from '../../utils/filesystem.util.js'
+import * as path from 'node:path'
 
 export type AgentStatus = 'idle' | 'running' | 'finished' | 'error' | 'cancelled'
 
@@ -48,6 +52,7 @@ export interface ClaudeCodeAgent {
   readonly messages: Stream.Stream<SdkMessage>
   readonly run: (prompt: string, sessionId?: string) => Effect.Effect<void, ClaudeCodeError>
   readonly cancel: () => Effect.Effect<void>
+  readonly checkAuth: () => Effect.Effect<boolean, ClaudeCodeError>
 }
 
 export class ClaudeCodeAgentTag extends Context.Tag('ClaudeCodeAgent')<
@@ -184,6 +189,102 @@ export const makeClaudeCodeAgent = (
         }
       })
 
+    const checkAuth = (): Effect.Effect<boolean, ClaudeCodeError> =>
+      Effect.gen(function* () {
+        yield* Effect.logInfo('[ClaudeCodeAgent] Checking auth status.')
+
+        if (!config.workingDirectory) {
+          return yield* Effect.fail(
+            new ClaudeCodeError('workingDirectory is required for auth check')
+          )
+        }
+
+        const authCheckDir = path.join(config.workingDirectory, '.authCheck')
+        yield* ensureDirectory(authCheckDir)
+
+        // Create a temporary agent with the auth check directory
+        const authAgent = yield* makeClaudeCodeAgent({
+          ...config,
+          workingDirectory: authCheckDir,
+          maxTurns: 3,
+          permissionMode: 'bypassPermissions'
+        })
+
+        // Set up a promise to capture the system message
+        let authResult = true // Assume authenticated until we see an error
+
+        // Subscribe to messages and look for authentication errors
+        const messageSubscription = authAgent.messages.pipe(
+          Stream.tap((message: SdkMessage) =>
+            Effect.gen(function* () {
+              // Check for assistant messages with "Invalid API key" error
+              if (message.type === 'assistant') {
+                const assistantMessage = message.message
+                if (assistantMessage && assistantMessage.content) {
+                  const content = Array.isArray(assistantMessage.content)
+                    ? assistantMessage.content
+                    : [assistantMessage.content]
+
+                  const hasAuthError = content.some((block) => {
+                    if (block && typeof block === 'object' && 'type' in block && 'text' in block) {
+                      const hasError =
+                        block.type === 'text' &&
+                        typeof block.text === 'string' &&
+                        block.text.includes('Invalid API key')
+                      if (hasError) {
+                        console.log('[ClaudeCodeAgent] Found Invalid API key in text:', block.text)
+                      }
+                      return hasError
+                    }
+                    return false
+                  })
+
+                  if (hasAuthError) {
+                    log.warn(
+                      '[ClaudeCodeAgent] Auth check failed: Invalid API key detected in assistant message'
+                    )
+                    authResult = false
+                  }
+                }
+              }
+
+              // Also check result messages for auth errors
+              if (message.type === 'result' && message.is_error) {
+                if (message.result && message.result.includes('Invalid API key')) {
+                  log.warn(
+                    '[ClaudeCodeAgent] Auth check failed: Invalid API key detected in result message'
+                  )
+                  authResult = false
+                }
+              }
+            })
+          ),
+          Stream.runDrain
+        )
+
+        // Start the message subscription
+        yield* Effect.fork(messageSubscription)
+
+        // Run a simple auth check prompt
+        yield* authAgent.run('auth-check')
+
+        // Wait for the agent to complete
+        yield* authAgent.changes.pipe(
+          Stream.filter(
+            (s) => s.status === 'finished' || s.status === 'error' || s.status === 'cancelled'
+          ),
+          Stream.runHead
+        )
+
+        return authResult
+      }).pipe(
+        Effect.scoped,
+        Effect.catchAll((error) => {
+          log.error('[ClaudeCodeAgent] Auth check failed with error:', error)
+          return Effect.succeed(false)
+        })
+      )
+
     const messages = Stream.fromPubSub(messagesPubSub)
 
     yield* Effect.addFinalizer(() =>
@@ -199,7 +300,8 @@ export const makeClaudeCodeAgent = (
       changes: state.changes,
       messages,
       run,
-      cancel
+      cancel,
+      checkAuth
     }
   })
 

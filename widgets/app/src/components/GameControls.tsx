@@ -79,11 +79,11 @@ export const GameControls: React.FC = () => {
           <Textarea
             value={botScript}
             onChange={(e) => setBotScript(e.target.value)}
-            className="flex-grow font-mono text-sm bg-black/50 border-gray-600 text-gray-200 focus:ring-blue-500"
+            className="flex-grow font-mono text-sm bg-black/50 border-gray-600 text-gray-200 focus:ring-[#CB661C]"
             placeholder="on('update', (state) => { ... })"
           />
           <DialogFooter>
-            <Button onClick={handleSaveScript} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleSaveScript} className="bg-[#CB661C] hover:bg-[#B55A17]">
               Save and Reload Script
             </Button>
           </DialogFooter>

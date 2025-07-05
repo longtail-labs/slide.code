@@ -32,6 +32,7 @@
     "@slide.code/schema": "*",
     "@slide.code/shared": "*",
     "@types/chokidar": "^1.7.5",
+    "ccusage": "^15.3.0",
     "chokidar": "^4.0.3",
     "electron-log": "^5.4.1",
     "electron-store": "^10.1.0",

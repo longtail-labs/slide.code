@@ -141,7 +141,7 @@ const ToolUseBlockComponent = ({ block }: { block: ToolUseBlock }) => {
                   ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
                   : todo.priority === 'medium'
                     ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200'
-                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
+                    : 'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200'
 
               return (
                 <div
@@ -344,7 +344,7 @@ export function ChatSidebar({ task }: ChatSidebarProps) {
       Match.when(Schema.is(SdkAssistantMessageSchema), (msg) => (
         <div className="flex items-start space-x-1">
           <div className="flex-1">
-            <p className="font-semibold text-xs text-gray-600">Claude</p>
+            <p className="font-semibold text-xs text-gray-600 dark:text-gray-300">Claude</p>
             <div className="text-xs mt-0.5 break-words">
               <MessageContent content={msg.message.content} />
             </div>
@@ -388,7 +388,7 @@ export function ChatSidebar({ task }: ChatSidebarProps) {
       Match.when(Schema.is(SdkSystemMessageSchema), (msg) => (
         <div className="flex items-start space-x-1">
           <div className="flex-1">
-            <p className="font-semibold text-xs text-gray-600">System</p>
+            <p className="font-semibold text-xs text-gray-600 dark:text-gray-300">System</p>
             <div className="text-xs mt-0.5 font-mono break-words space-y-0.5">
               <div>Model: {msg.model}</div>
               <div>CWD: {msg.cwd}</div>
@@ -403,26 +403,24 @@ export function ChatSidebar({ task }: ChatSidebarProps) {
         return (
           <div className="flex items-start space-x-1 flex-row-reverse">
             <div className="flex-1">
-              <p className="font-semibold text-xs text-blue-600 dark:text-blue-400 text-right">
-                You
-              </p>
-              <div className="text-xs rounded p-1.5 mt-0.5 break-words bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <p className="font-semibold text-xs text-[#CB661C] text-right">You</p>
+              <div className="text-xs rounded p-1.5 mt-0.5 break-words bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
                 <p>{msg.content}</p>
                 {hasFileComments && (
-                  <div className="mt-1 pt-1 border-t border-blue-200 dark:border-blue-700">
-                    <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-0.5">
-                      File Comments:
-                    </p>
+                  <div className="mt-1 pt-1 border-t border-orange-200 dark:border-orange-700">
+                    <p className="text-xs font-semibold text-[#CB661C] mb-0.5">File Comments:</p>
                     {msg.fileComments!.map((comment, index) => (
                       <div key={index} className="text-xs mb-0.5">
                         <Badge
                           variant="outline"
-                          className="mr-0.5 text-xs px-1 py-0 border-blue-300 dark:border-blue-600"
+                          className="mr-0.5 text-xs px-1 py-0 border-orange-300 dark:border-orange-600"
                         >
                           {comment.filePath}
                           {comment.lineNumber && `:${comment.lineNumber}`}
                         </Badge>
-                        <span className="text-blue-700 dark:text-blue-300">{comment.comment}</span>
+                        <span className="text-orange-700 dark:text-orange-300">
+                          {comment.comment}
+                        </span>
                       </div>
                     ))}
                   </div>

@@ -38,7 +38,7 @@ export function PromptBox({ task }: PromptBoxProps) {
     <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30 w-[600px] max-w-[80vw]">
       {/* Comments indicator */}
       {commentsCount > 0 && (
-        <div className="mb-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
+        <div className="mb-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg px-3 py-2 text-sm text-orange-700 dark:text-orange-300">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4" />
             <span>

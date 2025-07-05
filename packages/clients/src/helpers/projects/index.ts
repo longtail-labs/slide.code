@@ -44,23 +44,36 @@ export const useProject = (projectId: string) => {
   })
 }
 
+// Hook to select project directory using Electron dialog
+export const useSelectProjectDirectory = () => {
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<string | null, Error, void>({
+    mutationFn: async () => {
+      console.log('[PROJECT-HELPERS] 📁 Opening directory selection dialog')
+      const selectedPath = await runRpcProgram((client) => {
+        return client.SelectProjectDirectory()
+      })
+      console.log('[PROJECT-HELPERS] 📁 Directory selected:', selectedPath)
+      return selectedPath
+    },
+    onError: (error) => {
+      console.error('[PROJECT-HELPERS] ❌ Error selecting directory:', error)
+    }
+  })
+}
+
 // Hook to add a new project (with existing path)
 export const useAddProject = () => {
   const queryClient = useQueryClient()
+  const { runRpcProgram } = useRpc()
 
-  return useMutation<Project, Error, { path: string }>({
+  return useMutation<RpcProject, Error, { path: string }>({
     mutationFn: async (projectData: { path: string }) => {
       console.log('[PROJECT-HELPERS] ➕ Adding project:', projectData.path)
-      // Node's path.basename is not available in renderer.
-      // A simple split should work for most cases to extract name from path.
-      const name = projectData.path.split(/[\\/]/).pop() || projectData.path
-      const [newProject] = await db
-        .insert(projects)
-        .values({
-          name,
-          path: projectData.path
-        })
-        .returning()
+      const newProject = await runRpcProgram((client) => {
+        return client.AddProject({ path: projectData.path })
+      })
       console.log('[PROJECT-HELPERS] ➕ Project added:', newProject.id)
       return newProject
     },
@@ -69,9 +82,7 @@ export const useAddProject = () => {
       // Invalidate and refetch projects list
       await queryClient.invalidateQueries({ queryKey: ProjectQueryKeys.lists() })
 
-      // Broadcast invalidation to other processes
-      // await pubsub.publish(createInvalidateQuery(projectQueryKeys.lists()))
-
+      // Note: RPC handler already broadcasts invalidation message via pubsub
       console.log('[PROJECT-HELPERS] ✅ Project addition completed and cache invalidated')
     },
     onError: (error) => {

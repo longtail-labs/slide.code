@@ -6,11 +6,14 @@ import {
   Folder,
   Gamepad2,
   GitCommit,
+  Home,
   ListMusic,
+  Newspaper,
   Pause,
   Play,
   Shuffle,
-  Terminal
+  Terminal,
+  Tv2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -36,6 +39,7 @@ import {
   useOpenInEditor,
   useArchiveTask
 } from '@slide.code/clients'
+import { useWatchWebview } from '@/components/WatchWebviewManager'
 
 interface SomaFmPlaylist {
   url: string
@@ -66,6 +70,7 @@ const BottomBar = () => {
   const router = useRouter()
   const canGoBack = useCanGoBack()
   const { isScriptActive } = useGameWebview()
+  const { isAudible: isWatchViewAudible, stopPlayback: stopWatchViewPlayback } = useWatchWebview()
 
   // Get current task data if on working route
   const isWorking = location.pathname.startsWith('/working/')
@@ -112,6 +117,12 @@ const BottomBar = () => {
   const [currentServerIndex, setCurrentServerIndex] = useState(0)
   const [streamServers, setStreamServers] = useState<string[]>([])
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    if (isWatchViewAudible && isPlaying && audioRef.current) {
+      audioRef.current.pause()
+    }
+  }, [isWatchViewAudible, isPlaying])
 
   useEffect(() => {
     const fetchChannels = async () => {
@@ -299,6 +310,7 @@ const BottomBar = () => {
         audio.pause()
         setIsPlaying(false)
       } else {
+        stopWatchViewPlayback()
         const currentStreamUrl = streamServers[currentServerIndex]
         if (audio.src !== currentStreamUrl) {
           audio.src = currentStreamUrl
@@ -340,7 +352,11 @@ const BottomBar = () => {
   const handleGoBack = () => {
     if (location.pathname.startsWith('/working/')) {
       navigate({ to: '/' })
-    } else if (location.pathname === '/game') {
+    } else if (
+      location.pathname === '/game' ||
+      location.pathname === '/watch' ||
+      location.pathname === '/read'
+    ) {
       if (canGoBack) {
         // Use TanStack Router's history to go back
         router.history.back()
@@ -354,12 +370,20 @@ const BottomBar = () => {
   const handleGameClick = () => {
     navigate({ to: '/game' })
   }
+  const handleReadClick = () => {
+    navigate({ to: '/read' })
+  }
+  const handleWatchClick = () => {
+    navigate({ to: '/watch' })
+  }
 
   const isPlanning = location.pathname === '/'
   const isGame = location.pathname === '/game'
+  const isWatch = location.pathname === '/watch'
+  const isRead = location.pathname === '/read'
 
   return (
-    <div className="bottom-0 left-0 right-0 h-20 bg-gray-50 border-t border-gray-200 flex items-center px-3 z-50 font-recursive">
+    <div className="bottom-0 left-0 right-0 h-20 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex items-center px-3 z-50 font-recursive">
       <div className="flex items-center gap-x-3 flex-1">
         {/* Left side - conditional rendering */}
         {isWorking ? (
@@ -368,9 +392,9 @@ const BottomBar = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
 
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col">
               <div className="flex items-center gap-x-3">
-                <span className="font-bold text-gray-800 truncate">
+                <span className="font-bold text-gray-800 dark:text-gray-100 truncate">
                   {currentProject ? currentProject.name : 'Loading...'}
                 </span>
                 <div className="flex items-center space-x-2 text-sm font-mono">
@@ -378,7 +402,7 @@ const BottomBar = () => {
                   <span className="text-red-500 font-medium">-{diffStats.deletions}</span>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 truncate">
+              <p className="text-sm text-gray-600 dark:text-gray-400 w-56 line-clamp-3 whitespace-normal">
                 {task ? task.name : 'Loading task...'}
               </p>
             </div>
@@ -390,14 +414,36 @@ const BottomBar = () => {
             </Button>
 
             <div className="flex flex-col">
-              <span className="font-bold text-gray-800">Game Mode</span>
-              <span className="text-xs text-gray-500">BitSplat.fly.dev</span>
+              <span className="font-bold text-gray-800 dark:text-gray-100">Game Mode</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">BitSplat.fly.dev</span>
+            </div>
+          </>
+        ) : isWatch ? (
+          <>
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={handleGoBack}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex flex-col">
+              <span className="font-bold text-gray-800 dark:text-gray-100">Watch</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">tbpn.com</span>
+            </div>
+          </>
+        ) : isRead ? (
+          <>
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={handleGoBack}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex flex-col">
+              <span className="font-bold text-gray-800 dark:text-gray-100">Read</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Hacker News</span>
             </div>
           </>
         ) : (
           <div className="flex flex-col">
-            <span className="font-bold text-gray-800">Slide Code</span>
-            <span className="text-xs text-gray-500 whitespace-pre-line">
+            <span className="font-bold text-gray-800 dark:text-gray-100">
+              <span className="text-[#CB661C]">Slide Code</span>
+            </span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 w-56 line-clamp-3 whitespace-normal">
               {`Graphical Vibe Coding Environment (VCE)\nfor Claude Code`}
             </span>
           </div>
@@ -407,112 +453,114 @@ const BottomBar = () => {
       {/* Center - only show for working view */}
       {isWorking && (
         <div className="flex-none px-4">
-          <div className="flex items-center gap-x-2">
+          <div className="flex flex-col items-center gap-y-1">
             {task?.status === 'running' ? (
-              <div className="flex items-center gap-x-2 text-sm text-gray-500">
-                <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></div>
+              <div className="flex items-center gap-x-2 text-xs text-gray-500">
+                <div className="w-2 h-2 bg-[#CB661C] rounded-full animate-pulse"></div>
                 <span>Working...</span>
               </div>
             ) : (
               <div className="flex items-center gap-x-1">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span className="text-sm text-green-700 font-medium">
+                <span className="text-xs text-green-700 font-medium">
                   {task?.status === 'completed' ? 'Completed' : 'Open'}
                 </span>
               </div>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => {
-                if (taskIdFromPath) {
-                  archiveTask.mutate(taskIdFromPath, {
-                    onSuccess: () => {
-                      // Navigate back to home after successful archive
-                      navigate({ to: '/' })
-                    }
-                  })
-                }
-              }}
-              disabled={archiveTask.isPending}
-            >
-              <Archive className="h-3.5 w-3.5 mr-1.5" />
-              {archiveTask.isPending ? 'Archiving...' : 'Archive'}
-            </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8">
-                  Open
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-1" align="center" side="top">
-                <div className="grid gap-1">
-                  <Button
-                    variant="ghost"
-                    className="justify-start w-full h-8 px-2"
-                    onClick={() => {
-                      if (taskIdFromPath) {
-                        openInEditor.mutate(taskIdFromPath)
+            <div className="flex items-center gap-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  if (taskIdFromPath) {
+                    archiveTask.mutate(taskIdFromPath, {
+                      onSuccess: () => {
+                        // Navigate back to home after successful archive
+                        navigate({ to: '/' })
                       }
-                    }}
-                    disabled={openInEditor.isPending}
-                  >
-                    <Code className="h-4 w-4 mr-2" /> Open in Editor
+                    })
+                  }
+                }}
+                disabled={archiveTask.isPending}
+              >
+                <Archive className="h-3.5 w-3.5 mr-1.5" />
+                {archiveTask.isPending ? 'Archiving...' : 'Archive'}
+              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8">
+                    Open
                   </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start w-full h-8 px-2"
-                    onClick={() => {
-                      if (taskIdFromPath) {
-                        openInFinder.mutate(taskIdFromPath)
-                      }
-                    }}
-                    disabled={openInFinder.isPending}
-                  >
-                    <Folder className="h-4 w-4 mr-2" /> Open in Finder
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start w-full h-8 px-2"
-                    onClick={() => {
-                      if (taskIdFromPath) {
-                        openInTerminal.mutate(taskIdFromPath)
-                      }
-                    }}
-                    disabled={openInTerminal.isPending}
-                  >
-                    <Terminal className="h-4 w-4 mr-2" /> Open in Terminal
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start w-full h-8 px-2"
-                    onClick={() => {
-                      if (taskIdFromPath) {
-                        openInGitHubDesktop.mutate(taskIdFromPath)
-                      }
-                    }}
-                    disabled={openInGitHubDesktop.isPending}
-                  >
-                    <GitCommit className="h-4 w-4 mr-2" /> GitHub Desktop
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-1" align="center" side="top">
+                  <div className="grid gap-1">
+                    <Button
+                      variant="ghost"
+                      className="justify-start w-full h-8 px-2"
+                      onClick={() => {
+                        if (taskIdFromPath) {
+                          openInEditor.mutate(taskIdFromPath)
+                        }
+                      }}
+                      disabled={openInEditor.isPending}
+                    >
+                      <Code className="h-4 w-4 mr-2" /> Open in Editor
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="justify-start w-full h-8 px-2"
+                      onClick={() => {
+                        if (taskIdFromPath) {
+                          openInFinder.mutate(taskIdFromPath)
+                        }
+                      }}
+                      disabled={openInFinder.isPending}
+                    >
+                      <Folder className="h-4 w-4 mr-2" /> Open in Finder
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="justify-start w-full h-8 px_2"
+                      onClick={() => {
+                        if (taskIdFromPath) {
+                          openInTerminal.mutate(taskIdFromPath)
+                        }
+                      }}
+                      disabled={openInTerminal.isPending}
+                    >
+                      <Terminal className="h-4 w-4 mr-2" /> Open in Terminal
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="justify-start w-full h-8 px-2"
+                      onClick={() => {
+                        if (taskIdFromPath) {
+                          openInGitHubDesktop.mutate(taskIdFromPath)
+                        }
+                      }}
+                      disabled={openInGitHubDesktop.isPending}
+                    >
+                      <GitCommit className="h-4 w-4 mr-2" /> GitHub Desktop
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-            <Button
-              size="sm"
-              className="h-8"
-              onClick={() => {
-                if (taskIdFromPath) {
-                  commitTask.mutate(taskIdFromPath)
-                }
-              }}
-              disabled={commitTask.isPending}
-            >
-              <GitCommit className="h-3.5 w-3.5 mr-1.5" />
-              {commitTask.isPending ? 'Committing...' : 'Commit'}
-            </Button>
+              <Button
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  if (taskIdFromPath) {
+                    commitTask.mutate(taskIdFromPath)
+                  }
+                }}
+                disabled={commitTask.isPending}
+              >
+                <GitCommit className="h-3.5 w-3.5 mr-1.5" />
+                {commitTask.isPending ? 'Committing...' : 'Commit'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -525,8 +573,22 @@ const BottomBar = () => {
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse" />
           )}
         </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 relative"
+          onClick={handleWatchClick}
+        >
+          <Tv2 className="h-4 w-4" />
+          {isWatchViewAudible && !isWatch && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#CB661C] rounded-full animate-pulse" />
+          )}
+        </Button>
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleReadClick}>
+          <Newspaper className="h-4 w-4" />
+        </Button>
 
-        <div className="flex items-center gap-x-1 bg-white border border-gray-200 rounded-md p-1">
+        <div className="flex items-center gap-x-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md p-1">
           <Button
             variant="ghost"
             size="icon"
@@ -535,7 +597,7 @@ const BottomBar = () => {
             disabled={isLoading}
           >
             {isLoading ? (
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 border-t-[#CB661C] rounded-full animate-spin" />
             ) : isPlaying ? (
               <Pause className="h-4 w-4" />
             ) : (
@@ -546,7 +608,7 @@ const BottomBar = () => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="w-40 cursor-default px-1 text-xs text-gray-600">
+                <div className="w-32 cursor-default px-1 text-xs text-gray-600">
                   <div
                     className={`font-medium whitespace-nowrap truncate text-xs ${
                       isPlaying && !error ? 'text-green-600' : ''

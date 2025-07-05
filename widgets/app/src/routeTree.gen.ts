@@ -14,9 +14,21 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkingTaskIdRouteImport } from './routes/working/$taskId'
 
+const WatchLazyRouteImport = createFileRoute('/watch')()
+const ReadLazyRouteImport = createFileRoute('/read')()
 const GameLazyRouteImport = createFileRoute('/game')()
 const AboutLazyRouteImport = createFileRoute('/about')()
 
+const WatchLazyRoute = WatchLazyRouteImport.update({
+  id: '/watch',
+  path: '/watch',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/watch.lazy').then((d) => d.Route))
+const ReadLazyRoute = ReadLazyRouteImport.update({
+  id: '/read',
+  path: '/read',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/read.lazy').then((d) => d.Route))
 const GameLazyRoute = GameLazyRouteImport.update({
   id: '/game',
   path: '/game',
@@ -42,12 +54,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutLazyRoute
   '/game': typeof GameLazyRoute
+  '/read': typeof ReadLazyRoute
+  '/watch': typeof WatchLazyRoute
   '/working/$taskId': typeof WorkingTaskIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutLazyRoute
   '/game': typeof GameLazyRoute
+  '/read': typeof ReadLazyRoute
+  '/watch': typeof WatchLazyRoute
   '/working/$taskId': typeof WorkingTaskIdRoute
 }
 export interface FileRoutesById {
@@ -55,25 +71,50 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutLazyRoute
   '/game': typeof GameLazyRoute
+  '/read': typeof ReadLazyRoute
+  '/watch': typeof WatchLazyRoute
   '/working/$taskId': typeof WorkingTaskIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/game' | '/working/$taskId'
+  fullPaths: '/' | '/about' | '/game' | '/read' | '/watch' | '/working/$taskId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/game' | '/working/$taskId'
-  id: '__root__' | '/' | '/about' | '/game' | '/working/$taskId'
+  to: '/' | '/about' | '/game' | '/read' | '/watch' | '/working/$taskId'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/game'
+    | '/read'
+    | '/watch'
+    | '/working/$taskId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutLazyRoute: typeof AboutLazyRoute
   GameLazyRoute: typeof GameLazyRoute
+  ReadLazyRoute: typeof ReadLazyRoute
+  WatchLazyRoute: typeof WatchLazyRoute
   WorkingTaskIdRoute: typeof WorkingTaskIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/watch': {
+      id: '/watch'
+      path: '/watch'
+      fullPath: '/watch'
+      preLoaderRoute: typeof WatchLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/read': {
+      id: '/read'
+      path: '/read'
+      fullPath: '/read'
+      preLoaderRoute: typeof ReadLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/game': {
       id: '/game'
       path: '/game'
@@ -109,6 +150,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutLazyRoute: AboutLazyRoute,
   GameLazyRoute: GameLazyRoute,
+  ReadLazyRoute: ReadLazyRoute,
+  WatchLazyRoute: WatchLazyRoute,
   WorkingTaskIdRoute: WorkingTaskIdRoute,
 }
 export const routeTree = rootRouteImport

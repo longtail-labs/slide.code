@@ -1,11 +1,12 @@
 import React, { Suspense } from 'react'
 import { useMatches, useMatch, createRootRouteWithContext } from '@tanstack/react-router'
 import { AnimatePresence } from 'framer-motion'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { TanStackRouterDevtools } from '@tanstack/router-devtools'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import Layout from './-components/Layout'
 import { AnimatedOutlet } from './-components/AnimatedOutlet'
 import { GameWebviewManager } from '@/components/GameWebviewManager'
+import { WatchWebviewManager } from '@/components/WatchWebviewManager'
 import type { QueryClient } from '@tanstack/react-query'
 
 interface RouterContext {
@@ -20,15 +21,17 @@ const RootComponent = () => {
 
   return (
     <GameWebviewManager>
-      <Layout>
-        <AnimatePresence mode="wait">
-          <AnimatedOutlet key={nextMatch?.id || match.id} />
-        </AnimatePresence>
-        <Suspense fallback={null}>
-          <TanStackRouterDevtools />
-          <ReactQueryDevtools buttonPosition="bottom-right" />
-        </Suspense>
-      </Layout>
+      <WatchWebviewManager>
+        <Layout>
+          <AnimatePresence mode="wait">
+            <AnimatedOutlet key={nextMatch?.id || match.id} />
+          </AnimatePresence>
+          <Suspense fallback={null}>
+            <TanStackRouterDevtools />
+            <ReactQueryDevtools buttonPosition="bottom-right" />
+          </Suspense>
+        </Layout>
+      </WatchWebviewManager>
     </GameWebviewManager>
   )
 }
@@ -36,35 +39,3 @@ const RootComponent = () => {
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent
 })
-
-// export const Route = createRootRoute({
-//   component: () => {
-//     const router = useRouter()
-
-//     return (
-//       <Layout>
-//         <div className="p-6">
-//           <AnimatePresence mode="wait">
-//             <AnimatedOutlet key={router.state.location.pathname} />
-//           </AnimatePresence>
-//           <Suspense fallback={null}>
-//             <TanStackRouterDevtools />
-//           </Suspense>
-//         </div>
-//       </Layout>
-//     )
-//   }
-// })
-
-// export const Route = createRootRoute({
-//   component: () => (
-//     <Layout>
-//       <div className="p-6">
-//         <Outlet />
-//         <Suspense fallback={null}>
-//           <TanStackRouterDevtools />
-//         </Suspense>
-//       </div>
-//     </Layout>
-//   )
-// })

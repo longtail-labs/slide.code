@@ -24,7 +24,7 @@ export function CenterPanel({ task }: CenterPanelProps) {
     <ResizablePanelGroup direction="horizontal" className="h-full">
       <ResizablePanel defaultSize={100}>
         <Tabs defaultValue="diff" className="h-full flex flex-col select-text">
-          <div className="p-2">
+          <div className="p-2 pt-8">
             <div className="mb-2">
               <TabsList>
                 <TabsTrigger value="diff">Diff</TabsTrigger>

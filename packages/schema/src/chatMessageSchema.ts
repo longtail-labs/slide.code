@@ -103,7 +103,13 @@ export const messageSubtypes = [
 export const SdkSystemMessageSchema = Schema.Struct({
   type: Schema.Literal('system'),
   subtype: Schema.Literal('init'),
-  apiKeySource: Schema.String,
+  apiKeySource: Schema.Union(
+    Schema.Literal('none'),
+    Schema.Literal('user'),
+    Schema.Literal('project'),
+    Schema.Literal('org'),
+    Schema.Literal('temporary')
+  ),
   cwd: Schema.String,
   session_id: Schema.String,
   tools: Schema.Array(Schema.String),

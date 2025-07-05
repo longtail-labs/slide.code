@@ -1,8 +1,7 @@
 import React, { useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { useFilePicker } from 'use-file-picker'
 import ActionBarPresenter from './ActionBarPresenter'
-import { useStartTask, useProjects, useAddProject, useCreateProject } from '@slide.code/clients'
+import { useStartTask, useProjects, useAddProject, useCreateProject, useSelectProjectDirectory } from '@slide.code/clients'
 import type { Project } from '@slide.code/schema'
 
 const ActionBar = () => {
@@ -10,40 +9,8 @@ const ActionBar = () => {
   const startTaskMutation = useStartTask()
   const addProjectMutation = useAddProject()
   const createProjectMutation = useCreateProject()
+  const selectDirectoryMutation = useSelectProjectDirectory()
   const { data: projects = [], isLoading: isLoadingProjects } = useProjects()
-  const resolveRef = useRef<((value: string | null) => void) | null>(null)
-
-  const { openFilePicker } = useFilePicker({
-    readAs: 'DataURL',
-    multiple: false,
-    directory: true,
-    onFilesSuccessfullySelected: async ({ plainFiles }) => {
-      if (resolveRef.current) {
-        const file = plainFiles[0] as File & { path: string }
-        if (file && file.path) {
-          try {
-            console.log('Selected project path:', file.path)
-            const newProject = await addProjectMutation.mutateAsync({ path: file.path })
-            resolveRef.current(newProject.id)
-          } catch (error) {
-            console.error('Failed to add project:', error)
-            resolveRef.current(null)
-          }
-        } else {
-          console.warn('Could not determine directory path from selection.')
-          resolveRef.current(null)
-        }
-        resolveRef.current = null
-      }
-    },
-    onFilesRejected: () => {
-      if (resolveRef.current) {
-        console.log('File selection was rejected.')
-        resolveRef.current(null)
-        resolveRef.current = null
-      }
-    }
-  })
 
   const handlePlay = async (details: {
     prompt: string
@@ -81,9 +48,17 @@ const ActionBar = () => {
       createProjectMutation.mutate(
         { name: projectName },
         {
-          onSuccess: (newProject) => {
-            console.log('Project created:', newProject)
-            resolve(newProject)
+          onSuccess: (rpcProject) => {
+            console.log('Project created:', rpcProject)
+            // Convert RPC Project to database Project format
+            const dbProject: Project = {
+              id: rpcProject.id,
+              name: rpcProject.name,
+              path: rpcProject.path,
+              createdAt: rpcProject.createdAt.toISOString(),
+              updatedAt: rpcProject.updatedAt.toISOString()
+            }
+            resolve(dbProject)
           },
           onError: (error) => {
             console.error('Failed to create project:', error)
@@ -94,11 +69,23 @@ const ActionBar = () => {
     })
   }
 
-  const handleSelectExistingProject = (): Promise<string | null> => {
-    return new Promise((resolve) => {
-      resolveRef.current = resolve
-      openFilePicker()
-    })
+  const handleSelectExistingProject = async (): Promise<string | null> => {
+    try {
+      console.log('Opening directory selection dialog...')
+      const selectedPath = await selectDirectoryMutation.mutateAsync()
+      
+      if (!selectedPath) {
+        console.log('Directory selection cancelled')
+        return null
+      }
+
+      console.log('Selected project path:', selectedPath)
+      const rpcProject = await addProjectMutation.mutateAsync({ path: selectedPath })
+      return rpcProject.id
+    } catch (error) {
+      console.error('Failed to select or add project:', error)
+      return null
+    }
   }
 
   return (
@@ -110,7 +97,7 @@ const ActionBar = () => {
       suggestions={[]}
       isLoading={startTaskMutation.isPending || isLoadingProjects}
       isCreatingProject={createProjectMutation.isPending}
-      isAddingProject={addProjectMutation.isPending}
+      isAddingProject={addProjectMutation.isPending || selectDirectoryMutation.isPending}
     />
   )
 }

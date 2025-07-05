@@ -31,7 +31,7 @@ const getFileIcon = (type: DiffType) => {
     case 'delete':
       return <FileMinus className="h-4 w-4 text-red-600 dark:text-red-400" />
     case 'rename':
-      return <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+      return <FileText className="h-4 w-4 text-[#CB661C] dark:text-orange-400" />
     case 'modify':
     default:
       return <FileText className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
@@ -250,24 +250,26 @@ export function DiffViewer({ diffText, isLoading, error }: DiffViewerProps) {
   // Now handle conditional rendering after all hooks have been called
   if (isLoading) {
     return (
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 h-full overflow-auto flex items-center justify-center">
-        <div className="text-sm text-gray-500">Loading diff...</div>
+      <div className="p-4 bg-gray-50 dark:bg-[#0a0a0a] h-full overflow-auto flex items-center justify-center">
+        <div className="text-sm text-gray-500 dark:text-gray-400">Loading diff...</div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 h-full overflow-auto flex items-center justify-center">
-        <div className="text-sm text-red-500">Error loading diff: {error.message}</div>
+      <div className="p-4 bg-gray-50 dark:bg-[#0a0a0a] h-full overflow-auto flex items-center justify-center">
+        <div className="text-sm text-red-500 dark:text-red-400">
+          Error loading diff: {error.message}
+        </div>
       </div>
     )
   }
 
   if (!diffText || diffText.trim() === '' || files.length === 0) {
     return (
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 h-full overflow-auto flex items-center justify-center">
-        <div className="text-sm text-gray-500">No changes yet</div>
+      <div className="p-4 bg-gray-50 dark:bg-[#0a0a0a] h-full overflow-auto flex items-center justify-center">
+        <div className="text-sm text-gray-500 dark:text-gray-400">No changes yet</div>
       </div>
     )
   }
@@ -276,7 +278,7 @@ export function DiffViewer({ diffText, isLoading, error }: DiffViewerProps) {
     return (
       <div
         key={`${file.oldRevision}-${file.newRevision}-${index}`}
-        className="bg-white dark:bg-gray-900 rounded border overflow-hidden mb-4 last:mb-0"
+        className="bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 overflow-hidden mb-4 last:mb-0"
       >
         <FileHeader file={file} />
         <Diff
@@ -284,7 +286,9 @@ export function DiffViewer({ diffText, isLoading, error }: DiffViewerProps) {
           diffType={file.type}
           hunks={file.hunks}
           className="diff-viewer"
+          // @ts-ignore
           renderGutter={renderGutter}
+          // @ts-ignore
           widgets={widgets}
         >
           {(hunks) => hunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)}
@@ -294,7 +298,7 @@ export function DiffViewer({ diffText, isLoading, error }: DiffViewerProps) {
   }
 
   return (
-    <div className="p-4 bg-gray-50 dark:bg-gray-800 h-full overflow-auto text-xs select-text">
+    <div className="p-4 bg-gray-50 dark:bg-[#0a0a0a] h-full overflow-auto text-xs select-text">
       <div className="space-y-4">{files.map(renderFile)}</div>
     </div>
   )

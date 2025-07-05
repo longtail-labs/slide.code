@@ -1,4 +1,4 @@
-import { Effect, Duration } from 'effect'
+import { Effect, Duration, Scope } from 'effect'
 import { BaseWindow, WebContentsView } from 'electron'
 import log from 'electron-log'
 import { listenTo } from '../utils/listenTo.js'
@@ -12,10 +12,12 @@ import {
   createInvalidateQuery,
   createTaskStart
 } from '@slide.code/schema/messages'
-import { UserRef } from '../refs/ipc/user.ref.js'
+import { UserRef, syncClaudeCodeUsageStats } from '../refs/ipc/user.ref.js'
 import { findClaudeCodeExecutable } from '../effects/findClaudeCodeExecutable.effect.js'
 import { DatabaseService, DatabaseServiceLive } from '../services/database.service.js'
 import type { TaskInsert, ChatMessageInsert } from '@slide.code/schema'
+import { makeClaudeCodeAgent } from '../resources/ClaudeCodeAgent/claude-code-agent.resource.js'
+import { CcusageService } from '../services/ccusage.service.js'
 
 const require = createRequire(import.meta.url)
 const resolve = require.resolve
@@ -105,6 +107,77 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
     const userRef = yield* UserRef
     log.info('[FLOW] ✅ Services obtained successfully')
 
+    // Test CcusageService first
+    yield* Effect.logInfo('📊 Testing CcusageService for Claude usage statistics')
+    log.info('[FLOW] 📊 Starting CcusageService test')
+
+    try {
+      const ccusageService = yield* CcusageService
+      log.info('[FLOW] ✅ CcusageService instance obtained')
+
+      // Test loading comprehensive usage stats
+      const usageStats = yield* ccusageService.loadComprehensiveStats().pipe(
+        Effect.catchAll((error) => {
+          log.info(
+            '[FLOW] ⚠️ CcusageService returned no data (likely no Claude usage yet):',
+            error.message
+          )
+          return Effect.succeed({
+            dailyUsage: [],
+            sessionUsage: [],
+            tokenTotals: {
+              inputTokens: 0,
+              outputTokens: 0,
+              cacheCreationTokens: 0,
+              cacheReadTokens: 0,
+              totalTokens: 0,
+              totalCost: 0
+            },
+            modelsUsed: []
+          })
+        })
+      )
+
+      log.info('[FLOW] 📊 CcusageService stats loaded:', {
+        dailyUsageCount: usageStats.dailyUsage.length,
+        sessionUsageCount: usageStats.sessionUsage.length,
+        totalCost: usageStats.tokenTotals.totalCost,
+        totalTokens: usageStats.tokenTotals.totalTokens,
+        modelsUsed: usageStats.modelsUsed
+      })
+
+      if (usageStats.dailyUsage.length > 0) {
+        log.info('[FLOW] 📈 Recent daily usage:', usageStats.dailyUsage.slice(-3))
+      }
+
+      if (usageStats.sessionUsage.length > 0) {
+        log.info('[FLOW] 🎯 Recent session usage:', usageStats.sessionUsage.slice(-2))
+      }
+
+      yield* Effect.logInfo('📊 CcusageService test completed successfully')
+      log.info('[FLOW] ✅ CcusageService test completed successfully')
+
+      // Sync usage stats to user state for persistence
+      yield* Effect.logInfo('💾 Syncing usage stats to user state')
+      log.info('[FLOW] 💾 Starting sync of usage stats to user state')
+
+      const syncSuccess = yield* syncClaudeCodeUsageStats().pipe(
+        Effect.catchAll((error) => {
+          log.warn('[FLOW] ⚠️ Failed to sync usage stats to user state:', error)
+          return Effect.succeed(false)
+        })
+      )
+
+      if (syncSuccess) {
+        log.info('[FLOW] ✅ Usage stats synced to user state successfully')
+      } else {
+        log.warn('[FLOW] ⚠️ Usage stats sync to user state failed')
+      }
+    } catch (ccusageError) {
+      yield* Effect.logError('📊 Error during CcusageService test', ccusageError)
+      log.error('[FLOW] ❌ CcusageService test failed:', ccusageError)
+    }
+
     // Test Claude Code service configuration and detect executable
     yield* Effect.logInfo('🤖 Testing Claude Code service configuration')
     log.info('[FLOW] 🤖 Starting Claude Code service configuration test')
@@ -119,6 +192,65 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
         yield* Effect.logInfo(`🤖 Successfully detected Claude at: ${detectedPath}`)
         yield* userRef.updateClaudeCodeExecutablePath(detectedPath)
         log.info('[FLOW] ✅ Claude executable detected and configured:', detectedPath)
+
+        // Schedule async auth check after app startup
+        yield* Effect.fork(
+          Effect.gen(function* () {
+            // Wait 5 seconds after app launch before checking auth
+            yield* Effect.sleep(Duration.millis(5000))
+
+            // Check current auth status first - only run check if not already authenticated
+            const currentUserState = yield* userRef.ref.get()
+            const isAlreadyAuthenticated = currentUserState.claudeCode?.isAuthenticated === true
+
+            if (isAlreadyAuthenticated) {
+              log.info('[FLOW] ✅ Claude Code already authenticated, skipping auth check')
+              return
+            }
+
+            log.info('[FLOW] 🔍 Running delayed authentication check...')
+
+            const userStateForCheck = yield* userRef.ref.get()
+            const claudeConfig = {
+              workingDirectory: userStateForCheck.vibeDirectory,
+              pathToClaudeCodeExecutable: detectedPath
+            }
+
+            const checkEffect = Effect.gen(function* () {
+              const agent = yield* makeClaudeCodeAgent(claudeConfig)
+              return yield* agent.checkAuth()
+            })
+
+            const isAuthed = yield* Effect.scoped(checkEffect)
+
+            yield* userRef.ref.update((state) => ({
+              ...state,
+              claudeCode: {
+                ...(state.claudeCode ?? {
+                  executablePath: null,
+                  lastDetected: null,
+                  stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null }
+                }),
+                executablePath: detectedPath,
+                isAuthenticated: isAuthed,
+                lastDetected: Date.now()
+              }
+            }))
+
+            if (!isAuthed) {
+              log.warn(
+                '[FLOW] ⚠️ Claude Code not authenticated. User will be prompted via reactive UI.'
+              )
+            } else {
+              log.info('[FLOW] ✅ Claude Code authentication verified successfully.')
+            }
+          }).pipe(
+            Effect.catchAll((error) => {
+              log.error('[FLOW] ❌ Delayed auth check failed:', error)
+              return Effect.void
+            })
+          )
+        )
       } else {
         yield* Effect.logWarning('🤖 Could not detect Claude executable automatically')
         log.warn(
@@ -183,27 +315,27 @@ export const AppLaunchedFlow = listenTo('AppReady', 'AppLaunchedFlow', (message)
       log.info('[FLOW] 🔧 Environment - MODE:', process.env.MODE)
       log.info('[FLOW] 🔧 Environment - VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL)
 
-      // yield* Effect.if(process.env.MODE === 'development' && !!process.env.VITE_DEV_SERVER_URL, {
-      //   onTrue: () =>
-      //     Effect.promise(() =>
-      //       webContentsView.webContents.loadURL(process.env.VITE_DEV_SERVER_URL!)
-      //     ).pipe(
-      //       Effect.tap(() => Effect.logInfo('Loaded from Vite Dev Server')),
-      //       Effect.tap(() => log.info('[FLOW] ✅ Content loaded from Vite Dev Server'))
-      //     ),
-      //   onFalse: () =>
-      //     Effect.promise(() =>
-      //       webContentsView.webContents.loadFile(resolve('@slide.code/app'))
-      //     ).pipe(
-      //       Effect.tap(() => Effect.logInfo('Loaded from file')),
-      //       Effect.tap(() => log.info('[FLOW] ✅ Content loaded from file'))
-      //     )
-      // })
+      yield* Effect.if(process.env.MODE === 'development' && !!process.env.VITE_DEV_SERVER_URL, {
+        onTrue: () =>
+          Effect.promise(() =>
+            webContentsView.webContents.loadURL(process.env.VITE_DEV_SERVER_URL!)
+          ).pipe(
+            Effect.tap(() => Effect.logInfo('Loaded from Vite Dev Server')),
+            Effect.tap(() => log.info('[FLOW] ✅ Content loaded from Vite Dev Server'))
+          ),
+        onFalse: () =>
+          Effect.promise(() =>
+            webContentsView.webContents.loadFile(resolve('@slide.code/app'))
+          ).pipe(
+            Effect.tap(() => Effect.logInfo('Loaded from file')),
+            Effect.tap(() => log.info('[FLOW] ✅ Content loaded from file'))
+          )
+      })
 
-      webContentsView.webContents.loadFile(resolve('@slide.code/app'))
+      // webContentsView.webContents.loadFile(resolve('@slide.code/app'))
 
       log.info('[FLOW] 🔧 Opening DevTools for debugging')
-      // webContentsView.webContents.openDevTools()
+      webContentsView.webContents.openDevTools()
 
       // Sleep briefly to ensure window is ready
       log.info('[FLOW] ⏳ Waiting 5 seconds for window to be ready')

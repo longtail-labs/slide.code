@@ -1,5 +1,6 @@
 // export * from './surreal.service.js'
 export * from './api.service.js'
+export * from './ccusage.service.js'
 export * from './electron-app.service.js'
 export * from './global-shortcut.service.js'
 export * from './ipc-ref.service.js'

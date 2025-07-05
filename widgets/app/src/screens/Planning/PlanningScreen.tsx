@@ -7,7 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { IconPlayerPlayFilled, IconSettings } from '@tabler/icons-react'
+import {
+  IconPlayerPlayFilled,
+  IconSettings,
+  IconBrandGithub,
+  IconBrandDiscord,
+  IconMoon,
+  IconSun
+} from '@tabler/icons-react'
 import {
   Sheet,
   SheetClose,
@@ -18,10 +25,141 @@ import {
   SheetTitle,
   SheetTrigger
 } from '@/components/ui/sheet'
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger
+} from '@/components/ui/navigation-menu'
 import { useTaskToasts } from '@/hooks'
 import { useUserRef, useTasks, useArchivedTasks, groupTasksByStatus } from '@slide.code/clients'
-import type { TaskWithProject as RpcTask } from '@slide.code/schema'
+import type { TaskWithProject as RpcTask, DailyUsage, SessionUsage } from '@slide.code/schema'
 import { getRelativeTimeString } from '@/lib/util'
+
+// Simple theme hook for single renderer app
+const useTheme = () => {
+  const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('theme')
+      if (stored === 'light' || stored === 'dark') {
+        return stored
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+    return 'light'
+  })
+
+  const setTheme = (newTheme: 'light' | 'dark') => {
+    setThemeState(newTheme)
+    localStorage.setItem('theme', newTheme)
+
+    if (typeof window !== 'undefined') {
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    }
+  }
+
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light')
+  }
+
+  // Apply theme on mount
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    }
+  }, [theme])
+
+  return { theme, setTheme, toggleTheme }
+}
+
+// Header Navigation Component
+const HeaderNavigation = ({ onSettingsClick }: { onSettingsClick: () => void }) => {
+  const { theme, toggleTheme } = useTheme()
+
+  const handleExternalLink = (url: string) => {
+    if (typeof window !== 'undefined') {
+      window.open(url, '_blank')
+    }
+  }
+
+  return (
+    <div className="fixed top-4 right-4 z-20">
+      <NavigationMenu>
+        <NavigationMenuList className="gap-1">
+          <NavigationMenuItem>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              onClick={() => handleExternalLink('https://github.com')}
+              title="GitHub"
+            >
+              <IconBrandGithub
+                size={32}
+                className="text-gray-700 dark:text-gray-300"
+                stroke={2.5}
+              />
+            </Button>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              onClick={() => handleExternalLink('https://discord.gg')}
+              title="Discord"
+            >
+              <IconBrandDiscord
+                size={32}
+                className="text-gray-700 dark:text-gray-300"
+                stroke={2.5}
+              />
+            </Button>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+            >
+              {theme === 'light' ? (
+                <IconMoon size={32} className="text-gray-700 dark:text-gray-300" stroke={2.5} />
+              ) : (
+                <IconSun size={32} className="text-gray-700 dark:text-gray-300" stroke={2.5} />
+              )}
+            </Button>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              onClick={onSettingsClick}
+              title="Settings"
+            >
+              <IconSettings size={32} className="text-gray-700 dark:text-gray-300" stroke={2.5} />
+            </Button>
+          </NavigationMenuItem>
+        </NavigationMenuList>
+      </NavigationMenu>
+    </div>
+  )
+}
 
 type Task = {
   id: string
@@ -121,30 +259,30 @@ const TaskListItem = ({
     <div
       className={`group flex justify-between items-center px-4 py-2.5 rounded-lg transition-all duration-200 cursor-pointer relative ${
         isSelected
-          ? 'bg-blue-50/80 shadow-sm'
+          ? 'bg-orange-50/80 dark:bg-orange-900/20 shadow-sm'
           : isWaiting
-            ? 'bg-orange-50/80 hover:bg-orange-100/90'
-            : 'hover:bg-gray-50/80'
+            ? 'bg-orange-50/80 dark:bg-orange-900/20 hover:bg-orange-100/90 dark:hover:bg-orange-800/30'
+            : 'hover:bg-gray-50/80 dark:hover:bg-gray-800/50'
       }`}
       onClick={handleTaskClick}
     >
       <div className="flex flex-col min-w-0 flex-1">
         <span
-          className={`font-medium text-base leading-tight ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}
+          className={`font-medium text-base leading-tight ${isSelected ? 'text-[#CB661C] dark:text-orange-200' : 'text-gray-900 dark:text-gray-100'}`}
         >
           {task.title}
         </span>
-        <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
+        <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
           <div className="flex flex-col">
             <span className="font-medium">{task.projectName}</span>
-            <span className="text-xs text-gray-400 font-mono truncate max-w-xs">
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate max-w-xs">
               {task.projectPath}
             </span>
           </div>
           {task.branch && (
             <>
-              <span className="text-gray-300">·</span>
-              <span className="truncate max-w-xs font-mono text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+              <span className="text-gray-300 dark:text-gray-600">·</span>
+              <span className="truncate max-w-xs font-mono text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
                 {task.branch}
               </span>
             </>
@@ -155,12 +293,12 @@ const TaskListItem = ({
         {task.status && (
           <div className="flex flex-col items-end">
             <StatusBadge status={task.status} color={task.statusColor as any} />
-            <span className="text-xs text-gray-400 mt-1">{task.date}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">{task.date}</span>
           </div>
         )}
         {!task.status && (
           <div className="flex flex-col items-end">
-            <span className="text-xs text-gray-400">{task.date}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{task.date}</span>
           </div>
         )}
         {(task.stats || isWorking) && (
@@ -172,7 +310,7 @@ const TaskListItem = ({
               </div>
             )}
             {isWorking && (
-              <div className="relative w-16 h-px mt-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="relative w-16 h-px mt-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <WorkingIndicator />
               </div>
             )}
@@ -202,7 +340,7 @@ const TaskGroup = ({ title, tasks }: { title: string; tasks: Task[] }) => {
   const isWorking = title === 'Running'
   return (
     <div className="mb-6">
-      <h2 className="sticky top-0 bg-white/95 backdrop-blur-sm text-xs font-semibold uppercase tracking-wider text-gray-500 px-4 py-2 z-10">
+      <h2 className="sticky top-0 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-sm text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-4 py-2 z-10">
         {title}
       </h2>
       <div className="space-y-1 px-4">
@@ -301,24 +439,17 @@ const PlanningScreen: React.FC = () => {
 
   return (
     <motion.div
-      className="flex flex-col h-full w-full bg-white text-gray-900 font-recursive"
+      className="flex flex-col h-full w-full bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 font-recursive transition-colors"
       variants={variants}
       initial="initial"
       animate="animate"
       exit="exit"
     >
-      {/* Settings Button - Positioned at top right of page */}
-      <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="fixed top-4 right-4 h-12 w-12 p-0 z-20 hover:bg-gray-100 transition-colors"
-          >
-            <IconSettings size={50} className="text-gray-700 font-bold" strokeWidth={2.5} />
-          </Button>
-        </SheetTrigger>
+      {/* Header Navigation */}
+      <HeaderNavigation onSettingsClick={() => setIsSettingsOpen(true)} />
 
+      {/* Settings Sheet */}
+      <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <SheetContent>
           <SheetHeader>
             <SheetTitle>Settings</SheetTitle>
@@ -335,7 +466,7 @@ const PlanningScreen: React.FC = () => {
                 value={claudeExecutablePath}
                 onChange={(e) => setClaudeExecutablePath(e.target.value)}
               />
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Path to the Claude Code executable. Leave empty to use system PATH.
               </p>
               {userState?.claudeCode.lastDetected && (
@@ -346,27 +477,75 @@ const PlanningScreen: React.FC = () => {
             </div>
 
             {userState?.claudeCode.stats && (
-              <div className="grid gap-3">
-                <Label>Usage Statistics</Label>
-                <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {userState.claudeCode.stats.totalRequests}
-                    </div>
-                    <div className="text-sm text-gray-600">Total Requests</div>
-                  </div>
-                  <div className="text-center">
+              <div className="grid gap-4">
+                <div>
+                  <Label className="text-base font-semibold">Claude Code Usage</Label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Usage statistics from your Claude Code sessions
+                  </p>
+                </div>
+
+                {/* Cost and Total Tokens */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg border">
                     <div className="text-2xl font-bold text-green-600">
                       ${userState.claudeCode.stats.totalCost.toFixed(4)}
                     </div>
-                    <div className="text-sm text-gray-600">Total Cost</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Total Cost</div>
+                  </div>
+                  <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg border">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {userState.claudeCode.stats.tokenTotals?.totalTokens.toLocaleString() || '0'}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Total Tokens</div>
                   </div>
                 </div>
-                {userState.claudeCode.stats.lastUsed && (
-                  <p className="text-xs text-gray-400">
-                    Last used: {new Date(userState.claudeCode.stats.lastUsed).toLocaleString()}
-                  </p>
+
+                {/* Token Breakdown - Input/Output */}
+                {userState.claudeCode.stats.tokenTotals && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Token Breakdown</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+                          {userState.claudeCode.stats.tokenTotals.inputTokens.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-blue-600 dark:text-blue-400">Input Tokens</div>
+                      </div>
+                      <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <div className="text-lg font-semibold text-purple-700 dark:text-purple-300">
+                          {userState.claudeCode.stats.tokenTotals.outputTokens.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-purple-600 dark:text-purple-400">
+                          Output Tokens
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
+
+                {/* Sync Status */}
+                {userState.claudeCode.stats.lastSyncTime && (
+                  <div className="text-xs text-gray-400 pt-2 border-t">
+                    Last synced:{' '}
+                    {new Date(userState.claudeCode.stats.lastSyncTime).toLocaleString()}
+                  </div>
+                )}
+
+                {/* Credit */}
+                <div className="text-xs text-gray-400 pt-2 border-t flex items-center gap-1">
+                  <span>Powered by</span>
+                  <button
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        window.open('https://github.com/ryoppippi/ccusage', '_blank')
+                      }
+                    }}
+                    className="text-blue-500 hover:text-blue-600 hover:underline transition-colors"
+                  >
+                    ccusage
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -378,13 +557,16 @@ const PlanningScreen: React.FC = () => {
           </SheetFooter>
         </SheetContent>
       </Sheet>
-      <Tabs defaultValue="tasks" className="w-full flex flex-col">
+
+      <Tabs defaultValue="tasks" className="w-full flex flex-col h-full">
         {/* Sticky Header with Input and Tabs */}
-        <header className="sticky top-0 z-10 bg-white">
+        <header className="sticky top-0 z-10 bg-white dark:bg-[#0a0a0a] transition-colors">
           <div className="max-w-4xl mx-auto w-full px-8 py-8">
             <div className="flex items-center justify-center mb-8">
               <div className="text-center">
-                <h1 className="text-4xl text-gray-900 vibe-time-header">Vibe time?</h1>
+                <h1 className="text-4xl text-gray-900 dark:text-gray-100 vibe-time-header transition-colors">
+                  <span className="text-[#CB661C]">Vibe time?</span>
+                </h1>
               </div>
             </div>
 
@@ -404,9 +586,9 @@ const PlanningScreen: React.FC = () => {
         </header>
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto pb-24">
-          <div className="max-w-4xl mx-auto w-full">
-            <TabsContent value="tasks" className="mt-0">
+        <main className="flex-1 overflow-hidden">
+          <div className="max-w-4xl mx-auto w-full h-full">
+            <TabsContent value="tasks" className="mt-0 h-full overflow-y-auto pb-24">
               {isLoading && <div className="px-4 py-8 text-center">Loading tasks...</div>}
               {error && (
                 <div className="px-4 py-8 text-center text-red-500">
@@ -425,7 +607,7 @@ const PlanningScreen: React.FC = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="archive" className="mt-0">
+            <TabsContent value="archive" className="mt-0 h-full overflow-y-auto pb-24">
               {isLoadingArchived && (
                 <div className="px-4 py-8 text-center">Loading archived tasks...</div>
               )}
@@ -438,7 +620,7 @@ const PlanningScreen: React.FC = () => {
                 <div className="space-y-0">
                   <TaskGroup title="Archived" tasks={archivedTasksForView} />
                   {archivedTasksForView.length === 0 && (
-                    <div className="px-4 py-8 text-center text-gray-500">
+                    <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       No archived tasks found.
                     </div>
                   )}

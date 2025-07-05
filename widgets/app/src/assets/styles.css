@@ -107,38 +107,38 @@ code {
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.141 0.005 285.823);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.141 0.005 285.823);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.274 0.006 286.033);
-  --input: oklch(0.274 0.006 286.033);
-  --ring: oklch(0.442 0.017 285.786);
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #0a0a0a;
+  --card-foreground: #fafafa;
+  --popover: #0a0a0a;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #0a0a0a;
+  --secondary: #262626;
+  --secondary-foreground: #fafafa;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --accent: #262626;
+  --accent-foreground: #fafafa;
+  --destructive: #dc2626;
+  --destructive-foreground: #fafafa;
+  --border: #262626;
+  --input: #262626;
+  --ring: #525252;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.274 0.006 286.033);
-  --sidebar-ring: oklch(0.442 0.017 285.786);
+  --sidebar: #171717;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #fafafa;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #262626;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #262626;
+  --sidebar-ring: #525252;
 }
 
 @theme inline {
@@ -191,4 +191,149 @@ code {
 
 .vibe-time-header {
   font-variation-settings: 'MONO' 0, 'CASL' 0, 'wght' 871, 'slnt' 0, 'CRSV' 0;
+}
+
+/* React diff view customization */
+:root {
+  --diff-background-color: #ffffff;
+  --diff-text-color: #1f2937;
+  --diff-font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', 'Source Code Pro', monospace;
+  --diff-selection-background-color: #fed7aa;
+  --diff-selection-text-color: var(--diff-text-color);
+  --diff-gutter-insert-background-color: #dcfce7;
+  --diff-gutter-insert-text-color: var(--diff-text-color);
+  --diff-gutter-delete-background-color: #fee2e2;
+  --diff-gutter-delete-text-color: var(--diff-text-color);
+  --diff-gutter-selected-background-color: #fffbeb;
+  --diff-gutter-selected-text-color: var(--diff-text-color);
+  --diff-code-insert-background-color: #f0fdf4;
+  --diff-code-insert-text-color: var(--diff-text-color);
+  --diff-code-delete-background-color: #fef2f2;
+  --diff-code-delete-text-color: var(--diff-text-color);
+  --diff-code-insert-edit-background-color: #86efac;
+  --diff-code-insert-edit-text-color: var(--diff-text-color);
+  --diff-code-delete-edit-background-color: #fca5a5;
+  --diff-code-delete-edit-text-color: var(--diff-text-color);
+  --diff-code-selected-background-color: #fffbeb;
+  --diff-code-selected-text-color: var(--diff-text-color);
+  --diff-omit-gutter-line-color: #dc2626;
+}
+
+.dark {
+  --diff-background-color: #0a0a0a;
+  --diff-text-color: #fafafa;
+  --diff-selection-background-color: #451a03;
+  --diff-selection-text-color: var(--diff-text-color);
+  --diff-gutter-insert-background-color: #14532d;
+  --diff-gutter-insert-text-color: var(--diff-text-color);
+  --diff-gutter-delete-background-color: #7f1d1d;
+  --diff-gutter-delete-text-color: var(--diff-text-color);
+  --diff-gutter-selected-background-color: #451a03;
+  --diff-gutter-selected-text-color: var(--diff-text-color);
+  --diff-code-insert-background-color: #052e16;
+  --diff-code-insert-text-color: var(--diff-text-color);
+  --diff-code-delete-background-color: #450a0a;
+  --diff-code-delete-text-color: var(--diff-text-color);
+  --diff-code-insert-edit-background-color: #166534;
+  --diff-code-insert-edit-text-color: var(--diff-text-color);
+  --diff-code-delete-edit-background-color: #991b1b;
+  --diff-code-delete-edit-text-color: var(--diff-text-color);
+  --diff-code-selected-background-color: #451a03;
+  --diff-code-selected-text-color: var(--diff-text-color);
+  --diff-omit-gutter-line-color: #ef4444;
+}
+
+/* Direct styling for diff components */
+.diff-viewer .diff {
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, monospace !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+.dark .diff-viewer .diff {
+  background-color: #0a0a0a !important;
+  color: #fafafa !important;
+}
+
+.dark .diff-viewer .diff-gutter {
+  background-color: #1f1f1f !important;
+  color: #a3a3a3 !important;
+  border-right: 1px solid #451a03 !important;
+}
+
+.dark .diff-viewer .diff-code {
+  background-color: #0a0a0a !important;
+  color: #fafafa !important;
+}
+
+.dark .diff-viewer .diff-gutter-insert {
+  background-color: #14532d !important;
+  color: #fafafa !important;
+}
+
+.dark .diff-viewer .diff-gutter-delete {
+  background-color: #7f1d1d !important;
+  color: #fafafa !important;
+}
+
+.dark .diff-viewer .diff-code-insert {
+  background-color: #052e16 !important;
+  color: #fafafa !important;
+}
+
+.dark .diff-viewer .diff-code-delete {
+  background-color: #450a0a !important;
+  color: #fafafa !important;
+}
+
+.dark .diff-viewer .diff-code-normal {
+  background-color: #0a0a0a !important;
+  color: #fafafa !important;
+}
+
+.dark .diff-viewer .diff-gutter-normal {
+  background-color: #1f1f1f !important;
+  color: #a3a3a3 !important;
+}
+
+/* Light mode explicit styles */
+.diff-viewer .diff-gutter {
+  background-color: #f9fafb !important;
+  color: #6b7280 !important;
+  border-right: 1px solid #e5e7eb !important;
+}
+
+.diff-viewer .diff-code {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+.diff-viewer .diff-gutter-insert {
+  background-color: #dcfce7 !important;
+  color: #1f2937 !important;
+}
+
+.diff-viewer .diff-gutter-delete {
+  background-color: #fee2e2 !important;
+  color: #1f2937 !important;
+}
+
+.diff-viewer .diff-code-insert {
+  background-color: #f0fdf4 !important;
+  color: #1f2937 !important;
+}
+
+.diff-viewer .diff-code-delete {
+  background-color: #fef2f2 !important;
+  color: #1f2937 !important;
+}
+
+.diff-viewer .diff-code-normal {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+.diff-viewer .diff-gutter-normal {
+  background-color: #f9fafb !important;
+  color: #6b7280 !important;
 }

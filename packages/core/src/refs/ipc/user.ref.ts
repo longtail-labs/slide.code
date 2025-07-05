@@ -1,8 +1,15 @@
 import { Effect } from 'effect'
 import { v4 as uuidv4 } from 'uuid'
 import { IPCRefService } from '../../services/ipc-ref.service.js'
-import { UserStateSchema, type UserState } from '@slide.code/schema'
+import {
+  UserStateSchema,
+  type UserState,
+  type TokenTotals,
+  type DailyUsage,
+  type SessionUsage
+} from '@slide.code/schema'
 import { ElectronStoreUtil } from '../../utils/electron-store.util.js'
+import { CcusageService } from '../../services/ccusage.service.js'
 /**
  * Initial state for the User ref
  * Generated with default values that will be replaced on initialization
@@ -15,7 +22,7 @@ export const initialUserState: UserState = {
   claudeCode: {
     executablePath: null,
     lastDetected: null,
-    stats: { totalRequests: 0, totalCost: 0, lastUsed: null }
+    stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null }
   },
   vibeDirectory: ''
 }
@@ -56,6 +63,26 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
         // Use existing user data directly since claudeCode is now optional
         yield* Effect.logInfo('[UserRef] Using existing user data')
         userState = existingUserData as UserState
+
+        // Migrate existing user data to include lastSyncTime if missing
+        if (userState.claudeCode?.stats && !('lastSyncTime' in userState.claudeCode.stats)) {
+          yield* Effect.logInfo(
+            '[UserRef] Migrating existing Claude Code stats to include lastSyncTime'
+          )
+          const currentStats = userState.claudeCode.stats as any
+          userState = {
+            ...userState,
+            claudeCode: {
+              ...userState.claudeCode,
+              stats: {
+                totalRequests: currentStats.totalRequests || 0,
+                totalCost: currentStats.totalCost || 0,
+                lastUsed: currentStats.lastUsed || null,
+                lastSyncTime: null
+              }
+            }
+          }
+        }
       } catch (error) {
         yield* Effect.logWarning(`[UserRef] Error loading existing user data: ${error}`)
         // Will create new user data below
@@ -128,7 +155,8 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
             stats: state.claudeCode?.stats || {
               totalRequests: 0,
               totalCost: 0,
-              lastUsed: null
+              lastUsed: null,
+              lastSyncTime: null
             }
           }
         }))
@@ -145,7 +173,7 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
           const currentClaudeCode = state.claudeCode || {
             executablePath: null,
             lastDetected: null,
-            stats: { totalRequests: 0, totalCost: 0, lastUsed: null }
+            stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null }
           }
 
           return {
@@ -155,7 +183,8 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
               stats: {
                 totalRequests: currentClaudeCode.stats.totalRequests + (stats.requests || 0),
                 totalCost: currentClaudeCode.stats.totalCost + (stats.cost || 0),
-                lastUsed: Date.now()
+                lastUsed: Date.now(),
+                lastSyncTime: currentClaudeCode.stats.lastSyncTime
               }
             }
           }
@@ -172,7 +201,7 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
         state.claudeCode || {
           executablePath: null,
           lastDetected: null,
-          stats: { totalRequests: 0, totalCost: 0, lastUsed: null }
+          stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null }
         }
       )
     })
@@ -203,6 +232,64 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
         return true
       })
 
+    /**
+     * Sync Claude Code usage statistics from ccusage service
+     */
+    const syncClaudeCodeUsageStats = () =>
+      Effect.gen(function* () {
+        console.log('[UserRef] syncClaudeCodeUsageStats')
+        try {
+          const ccusageService = yield* CcusageService
+          const usageStats = yield* ccusageService.loadComprehensiveStats().pipe(
+            Effect.catchAll((error) => {
+              console.log('[UserRef] No usage data available:', error.message)
+              return Effect.succeed({
+                dailyUsage: [],
+                sessionUsage: [],
+                tokenTotals: {
+                  inputTokens: 0,
+                  outputTokens: 0,
+                  cacheCreationTokens: 0,
+                  cacheReadTokens: 0,
+                  totalTokens: 0,
+                  totalCost: 0
+                },
+                modelsUsed: []
+              })
+            })
+          )
+
+          yield* ref.update((state) => ({
+            ...state,
+            claudeCode: {
+              ...(state.claudeCode || {
+                executablePath: null,
+                lastDetected: null,
+                stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null }
+              }),
+              stats: {
+                ...state.claudeCode?.stats,
+                totalRequests: state.claudeCode?.stats?.totalRequests || 0,
+                totalCost: usageStats.tokenTotals.totalCost,
+                lastUsed: state.claudeCode?.stats?.lastUsed || null,
+                lastSyncTime: Date.now(),
+                tokenTotals: usageStats.tokenTotals,
+                modelsUsed: usageStats.modelsUsed,
+                // Keep only recent data to avoid bloating the state
+                dailyUsage: usageStats.dailyUsage.slice(-7), // Last 7 days
+                sessionUsage: usageStats.sessionUsage.slice(-5) // Last 5 sessions
+              }
+            }
+          }))
+
+          console.log('[UserRef] ✅ Claude Code usage stats synced successfully')
+          return true
+        } catch (error) {
+          console.error('[UserRef] ❌ Failed to sync Claude Code usage stats:', error)
+          return false
+        }
+      })
+
     // Register a finalizer for cleanup
     yield* Effect.addFinalizer(() =>
       Effect.gen(function* () {
@@ -220,7 +307,8 @@ export class UserRef extends Effect.Service<UserRef>()('UserRef', {
       updateClaudeCodeStats,
       getClaudeCodeConfig,
       setCurrentTaskId,
-      clearCurrentTaskId
+      clearCurrentTaskId,
+      syncClaudeCodeUsageStats
     }
   })
 }) {}
@@ -335,4 +423,13 @@ export const clearCurrentTaskId = () =>
   Effect.gen(function* () {
     const userRef = yield* UserRef
     return yield* userRef.clearCurrentTaskId()
+  })
+
+/**
+ * Sync Claude Code usage statistics (exposed for direct invocation)
+ */
+export const syncClaudeCodeUsageStats = () =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.syncClaudeCodeUsageStats()
   })

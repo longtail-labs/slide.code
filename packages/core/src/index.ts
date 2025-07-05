@@ -10,7 +10,8 @@ import {
   PubSubClient,
   GlobalShortcutService,
   TaskService,
-  DatabaseService
+  DatabaseService,
+  CcusageServiceLive
 } from './services/index.js'
 
 import { PubSubSubscribers } from './subscribers/index.js'
@@ -55,7 +56,8 @@ const BaseServicesLayer = Layer.mergeAll(
   ElectronEventService.Default,
   RefsLayer,
   TaskService.Default,
-  DatabaseService.Default
+  DatabaseService.Default,
+  CcusageServiceLive
   // GlobalShortcutService.Default
 )
 

@@ -76,13 +76,93 @@ export const SlideStateSchema = Schema.Union(
 export type SlideState = Schema.Schema.Type<typeof SlideStateSchema>
 
 /**
+ * Schema for model-specific usage breakdown
+ */
+export const ModelBreakdownSchema = Schema.Struct({
+  modelName: Schema.String,
+  inputTokens: Schema.Number,
+  outputTokens: Schema.Number,
+  cacheCreationTokens: Schema.Number,
+  cacheReadTokens: Schema.Number,
+  cost: Schema.Number
+})
+
+/**
+ * Schema for daily Claude Code usage breakdown
+ */
+export const DailyUsageSchema = Schema.Struct({
+  date: Schema.String,
+  inputTokens: Schema.Number,
+  outputTokens: Schema.Number,
+  cacheCreationTokens: Schema.Number,
+  cacheReadTokens: Schema.Number,
+  totalCost: Schema.Number,
+  modelsUsed: Schema.Array(Schema.String),
+  modelBreakdowns: Schema.Array(ModelBreakdownSchema)
+})
+
+/**
+ * Schema for session Claude Code usage breakdown
+ */
+export const SessionUsageSchema = Schema.Struct({
+  sessionId: Schema.String,
+  projectPath: Schema.String,
+  inputTokens: Schema.Number,
+  outputTokens: Schema.Number,
+  cacheCreationTokens: Schema.Number,
+  cacheReadTokens: Schema.Number,
+  totalCost: Schema.Number,
+  lastActivity: Schema.String,
+  versions: Schema.Array(Schema.String),
+  modelsUsed: Schema.Array(Schema.String),
+  modelBreakdowns: Schema.Array(ModelBreakdownSchema)
+})
+
+/**
+ * Schema for token totals
+ */
+export const TokenTotalsSchema = Schema.Struct({
+  inputTokens: Schema.Number,
+  outputTokens: Schema.Number,
+  cacheCreationTokens: Schema.Number,
+  cacheReadTokens: Schema.Number,
+  totalTokens: Schema.Number,
+  totalCost: Schema.Number
+})
+
+/**
  * Schema for Claude Code usage stats
  */
 export const ClaudeCodeStatsSchema = Schema.Struct({
   totalRequests: Schema.Number,
   totalCost: Schema.Number,
-  lastUsed: Schema.Union(Schema.Number, Schema.Null)
+  lastUsed: Schema.Union(Schema.Number, Schema.Null),
+  lastSyncTime: Schema.Union(Schema.Number, Schema.Null),
+  tokenTotals: Schema.optional(TokenTotalsSchema),
+  dailyUsage: Schema.optional(Schema.Array(DailyUsageSchema)),
+  sessionUsage: Schema.optional(Schema.Array(SessionUsageSchema)),
+  modelsUsed: Schema.optional(Schema.Array(Schema.String))
 })
+
+/**
+ * Type for model breakdown
+ */
+export type ModelBreakdown = Schema.Schema.Type<typeof ModelBreakdownSchema>
+
+/**
+ * Type for daily Claude Code usage
+ */
+export type DailyUsage = Schema.Schema.Type<typeof DailyUsageSchema>
+
+/**
+ * Type for session Claude Code usage
+ */
+export type SessionUsage = Schema.Schema.Type<typeof SessionUsageSchema>
+
+/**
+ * Type for token totals
+ */
+export type TokenTotals = Schema.Schema.Type<typeof TokenTotalsSchema>
 
 /**
  * Type for Claude Code stats
@@ -95,7 +175,8 @@ export type ClaudeCodeStats = Schema.Schema.Type<typeof ClaudeCodeStatsSchema>
 export const ClaudeCodeConfigSchema = Schema.Struct({
   executablePath: Schema.Union(Schema.String, Schema.Null),
   lastDetected: Schema.Union(Schema.Number, Schema.Null),
-  stats: ClaudeCodeStatsSchema
+  stats: ClaudeCodeStatsSchema,
+  isAuthenticated: Schema.optional(Schema.Boolean)
 })
 
 /**

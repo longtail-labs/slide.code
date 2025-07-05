@@ -7,9 +7,18 @@ type LayoutProps = {
 
 const Layout = ({ children }: LayoutProps) => {
   return (
-    <div className="flex flex-col h-screen w-screen bg-background">
-      <div style={{ '-webkit-app-region': 'drag' } as React.CSSProperties} className="h-8 w-full" />
-      <main className="flex-1 overflow-y-auto">{children}</main>
+    <div className="flex flex-col h-screen w-screen bg-background relative">
+      {/* Draggable area as overlay - doesn't take up layout space */}
+      <div 
+        style={{ '-webkit-app-region': 'drag' } as React.CSSProperties} 
+        className="absolute top-0 left-0 right-0 h-8 z-50 pointer-events-auto"
+      />
+      {/* Non-draggable areas for window controls */}
+      <div 
+        style={{ '-webkit-app-region': 'no-drag' } as React.CSSProperties}
+        className="absolute top-0 right-0 w-20 h-8 z-50"
+      />
+      <main className="flex-1 overflow-hidden h-full">{children}</main>
       <BottomBar />
     </div>
   )
