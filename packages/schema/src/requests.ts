@@ -204,6 +204,16 @@ export class SlideRpcs extends RpcGroup.make(
     error: Schema.String,
     payload: { taskId: Schema.String }
   }),
+  Rpc.make('StopTask', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
+  Rpc.make('DiscardChanges', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: { taskId: Schema.String }
+  }),
   Rpc.make('CommitTask', {
     success: Schema.Boolean,
     error: Schema.String,
@@ -253,6 +263,15 @@ export class SlideRpcs extends RpcGroup.make(
   //   error: Schema.String,
   //   payload: { projectId: Schema.String }
   // }),
+
+  // External operations
+  Rpc.make('OpenExternalLink', {
+    success: Schema.Boolean,
+    error: Schema.String,
+    payload: {
+      url: Schema.String
+    }
+  }),
 
   // Database operations
   Rpc.make('ExecuteQuery', {

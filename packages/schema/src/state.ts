@@ -5,7 +5,8 @@ import { Schema } from 'effect'
  */
 export const AppReadySchema = Schema.Struct({
   isReady: Schema.Boolean,
-  error: Schema.Union(Schema.String, Schema.Null),
+  error: Schema.optional(Schema.Boolean),
+  errorDetails: Schema.Union(Schema.String, Schema.Null),
   timestamp: Schema.Number
 })
 
@@ -176,7 +177,8 @@ export const ClaudeCodeConfigSchema = Schema.Struct({
   executablePath: Schema.Union(Schema.String, Schema.Null),
   lastDetected: Schema.Union(Schema.Number, Schema.Null),
   stats: ClaudeCodeStatsSchema,
-  isAuthenticated: Schema.optional(Schema.Boolean)
+  isAuthenticated: Schema.optional(Schema.Boolean),
+  lastAuthCheck: Schema.optional(Schema.Union(Schema.Number, Schema.Null))
 })
 
 /**

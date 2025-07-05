@@ -18,6 +18,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -37,7 +45,8 @@ import {
   useOpenInFinder,
   useOpenInTerminal,
   useOpenInEditor,
-  useArchiveTask
+  useArchiveTask,
+  useDiscardChanges
 } from '@slide.code/clients'
 import { useWatchWebview } from '@/components/WatchWebviewManager'
 
@@ -72,6 +81,9 @@ const BottomBar = () => {
   const { isScriptActive } = useGameWebview()
   const { isAudible: isWatchViewAudible, stopPlayback: stopWatchViewPlayback } = useWatchWebview()
 
+  // Track the last non-ephemeral route for proper back navigation
+  const [lastNonEphemeralRoute, setLastNonEphemeralRoute] = useState<string>('/')
+
   // Get current task data if on working route
   const isWorking = location.pathname.startsWith('/working/')
   const taskIdFromPath = isWorking ? location.pathname.split('/').pop() : null
@@ -86,6 +98,10 @@ const BottomBar = () => {
   const openInTerminal = useOpenInTerminal()
   const openInEditor = useOpenInEditor()
   const archiveTask = useArchiveTask()
+  const discardChanges = useDiscardChanges()
+
+  // State for confirmation dialogs
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
 
   // Calculate diff stats from the actual diff text
   const diffStats = useMemo(() => {
@@ -106,6 +122,11 @@ const BottomBar = () => {
     return { additions, deletions }
   }, [diffText])
 
+  // Check if there are any changes
+  const hasChanges = useMemo(() => {
+    return diffStats.additions > 0 || diffStats.deletions > 0
+  }, [diffStats])
+
   // Get project info
   const currentProject = task && projects ? projects.find((p) => p.id === task.projectId) : null
 
@@ -123,6 +144,17 @@ const BottomBar = () => {
       audioRef.current.pause()
     }
   }, [isWatchViewAudible, isPlaying])
+
+  // Track last non-ephemeral route for proper back navigation
+  useEffect(() => {
+    const isEphemeral = location.pathname === '/game' || 
+                        location.pathname === '/watch' || 
+                        location.pathname === '/read'
+    
+    if (!isEphemeral) {
+      setLastNonEphemeralRoute(location.pathname)
+    }
+  }, [location.pathname])
 
   useEffect(() => {
     const fetchChannels = async () => {
@@ -357,13 +389,8 @@ const BottomBar = () => {
       location.pathname === '/watch' ||
       location.pathname === '/read'
     ) {
-      if (canGoBack) {
-        // Use TanStack Router's history to go back
-        router.history.back()
-      } else {
-        // Fallback to home if there's no history to go back to
-        navigate({ to: '/' })
-      }
+      // For ephemeral routes, navigate to the last non-ephemeral route
+      navigate({ to: lastNonEphemeralRoute })
     }
   }
 
@@ -375,6 +402,28 @@ const BottomBar = () => {
   }
   const handleWatchClick = () => {
     navigate({ to: '/watch' })
+  }
+
+  const handleArchiveOnly = () => {
+    if (!taskIdFromPath) return
+
+    archiveTask.mutate(taskIdFromPath, {
+      onSuccess: () => {
+        navigate({ to: '/' })
+      }
+    })
+  }
+
+  const handleDiscardConfirm = () => {
+    if (!taskIdFromPath) return
+
+    discardChanges.mutate(taskIdFromPath, {
+      onSuccess: () => {
+        setShowDiscardDialog(false)
+        // Don't auto-archive, just close the dialog and stay on the task
+        // The button will automatically change to "Archive" since hasChanges will be false
+      }
+    })
   }
 
   const isPlanning = location.pathname === '/'
@@ -402,7 +451,7 @@ const BottomBar = () => {
                   <span className="text-red-500 font-medium">-{diffStats.deletions}</span>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 w-56 line-clamp-3 whitespace-normal">
+              <p className="text-sm text-gray-600 dark:text-gray-400 w-56 line-clamp-2 whitespace-normal">
                 {task ? task.name : 'Loading task...'}
               </p>
             </div>
@@ -443,7 +492,7 @@ const BottomBar = () => {
             <span className="font-bold text-gray-800 dark:text-gray-100">
               <span className="text-[#CB661C]">Slide Code</span>
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400 w-56 line-clamp-3 whitespace-normal">
+            <span className="text-xs text-gray-500 dark:text-gray-400 w-56 line-clamp-2 whitespace-normal">
               {`Graphical Vibe Coding Environment (VCE)\nfor Claude Code`}
             </span>
           </div>
@@ -453,114 +502,90 @@ const BottomBar = () => {
       {/* Center - only show for working view */}
       {isWorking && (
         <div className="flex-none px-4">
-          <div className="flex flex-col items-center gap-y-1">
-            {task?.status === 'running' ? (
-              <div className="flex items-center gap-x-2 text-xs text-gray-500">
-                <div className="w-2 h-2 bg-[#CB661C] rounded-full animate-pulse"></div>
-                <span>Working...</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-x-1">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span className="text-xs text-green-700 font-medium">
-                  {task?.status === 'completed' ? 'Completed' : 'Open'}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center gap-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8"
-                onClick={() => {
-                  if (taskIdFromPath) {
-                    archiveTask.mutate(taskIdFromPath, {
-                      onSuccess: () => {
-                        // Navigate back to home after successful archive
-                        navigate({ to: '/' })
+          <div className="flex items-center gap-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={hasChanges ? () => setShowDiscardDialog(true) : handleArchiveOnly}
+              disabled={archiveTask.isPending}
+            >
+              <Archive className="h-3.5 w-3.5 mr-1.5" />
+              {hasChanges ? 'Discard Changes' : 'Archive'}
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8">
+                  Open
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-1" align="center" side="top">
+                <div className="grid gap-1">
+                  <Button
+                    variant="ghost"
+                    className="justify-start w-full h-8 px-2"
+                    onClick={() => {
+                      if (taskIdFromPath) {
+                        openInEditor.mutate(taskIdFromPath)
                       }
-                    })
-                  }
-                }}
-                disabled={archiveTask.isPending}
-              >
-                <Archive className="h-3.5 w-3.5 mr-1.5" />
-                {archiveTask.isPending ? 'Archiving...' : 'Archive'}
-              </Button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8">
-                    Open
+                    }}
+                    disabled={openInEditor.isPending}
+                  >
+                    <Code className="h-4 w-4 mr-2" /> Open in Editor
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-48 p-1" align="center" side="top">
-                  <div className="grid gap-1">
-                    <Button
-                      variant="ghost"
-                      className="justify-start w-full h-8 px-2"
-                      onClick={() => {
-                        if (taskIdFromPath) {
-                          openInEditor.mutate(taskIdFromPath)
-                        }
-                      }}
-                      disabled={openInEditor.isPending}
-                    >
-                      <Code className="h-4 w-4 mr-2" /> Open in Editor
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="justify-start w-full h-8 px-2"
-                      onClick={() => {
-                        if (taskIdFromPath) {
-                          openInFinder.mutate(taskIdFromPath)
-                        }
-                      }}
-                      disabled={openInFinder.isPending}
-                    >
-                      <Folder className="h-4 w-4 mr-2" /> Open in Finder
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="justify-start w-full h-8 px_2"
-                      onClick={() => {
-                        if (taskIdFromPath) {
-                          openInTerminal.mutate(taskIdFromPath)
-                        }
-                      }}
-                      disabled={openInTerminal.isPending}
-                    >
-                      <Terminal className="h-4 w-4 mr-2" /> Open in Terminal
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="justify-start w-full h-8 px-2"
-                      onClick={() => {
-                        if (taskIdFromPath) {
-                          openInGitHubDesktop.mutate(taskIdFromPath)
-                        }
-                      }}
-                      disabled={openInGitHubDesktop.isPending}
-                    >
-                      <GitCommit className="h-4 w-4 mr-2" /> GitHub Desktop
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  <Button
+                    variant="ghost"
+                    className="justify-start w-full h-8 px-2"
+                    onClick={() => {
+                      if (taskIdFromPath) {
+                        openInFinder.mutate(taskIdFromPath)
+                      }
+                    }}
+                    disabled={openInFinder.isPending}
+                  >
+                    <Folder className="h-4 w-4 mr-2" /> Open in Finder
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start w-full h-8 px-2"
+                    onClick={() => {
+                      if (taskIdFromPath) {
+                        openInTerminal.mutate(taskIdFromPath)
+                      }
+                    }}
+                    disabled={openInTerminal.isPending}
+                  >
+                    <Terminal className="h-4 w-4 mr-2" /> Open in Terminal
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start w-full h-8 px-2"
+                    onClick={() => {
+                      if (taskIdFromPath) {
+                        openInGitHubDesktop.mutate(taskIdFromPath)
+                      }
+                    }}
+                    disabled={openInGitHubDesktop.isPending}
+                  >
+                    <GitCommit className="h-4 w-4 mr-2" /> GitHub Desktop
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
 
-              <Button
-                size="sm"
-                className="h-8"
-                onClick={() => {
-                  if (taskIdFromPath) {
-                    commitTask.mutate(taskIdFromPath)
-                  }
-                }}
-                disabled={commitTask.isPending}
-              >
-                <GitCommit className="h-3.5 w-3.5 mr-1.5" />
-                {commitTask.isPending ? 'Committing...' : 'Commit'}
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              className="h-8"
+              onClick={() => {
+                if (taskIdFromPath) {
+                  commitTask.mutate(taskIdFromPath)
+                }
+              }}
+              disabled={commitTask.isPending}
+            >
+              <GitCommit className="h-3.5 w-3.5 mr-1.5" />
+              {commitTask.isPending ? 'Committing...' : 'Commit'}
+            </Button>
           </div>
         </div>
       )}
@@ -684,6 +709,29 @@ const BottomBar = () => {
           <Bell className="h-4 w-4" />
         </Button>
       </div>
+
+      <Dialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Discard Changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved changes. Are you sure you want to discard them?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDiscardDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDiscardConfirm}
+              className="bg-red-600 hover:bg-red-700 text-white font-medium"
+            >
+              Discard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

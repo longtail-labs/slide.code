@@ -3,12 +3,9 @@ import * as RpcSerialization from '@effect/rpc/RpcSerialization'
 import * as RpcServer from '@effect/rpc/RpcServer'
 
 import {
-  // SentryService,
   MenuService,
   ElectronEventService,
-  PostHogService,
   PubSubClient,
-  GlobalShortcutService,
   TaskService,
   DatabaseService,
   CcusageServiceLive
@@ -28,7 +25,12 @@ import {
   registerSSRProtocols,
   registerDeepLinkingProtocol,
   createVibeDir,
-  findClaudeCodeExecutable
+  findClaudeCodeExecutable,
+  syncCcusageStats,
+  startCcusageBackgroundSync,
+  initializeCcusageSync,
+  checkClaudeCodeAuth,
+  initializeClaudeCodeAuth
 } from './effects/index.js'
 
 import * as config from './config.js'
@@ -39,19 +41,11 @@ import { SlideRpcs } from '@slide.code/schema/requests'
 import { SlideLive } from './rpc/handlers.js'
 import { ElectronProtocolLayer } from './rpc/index.js'
 
-// Create a default logger to use immediately (no config needed)
-// const defaultLogger = createDefaultLogger()
-
-// Replace the default logger with our custom one for immediate use
-// This means any Effect.log calls will use our formatted logger
-// export const DefaultLoggerLayer = Logger.replace(Logger.defaultLogger, defaultLogger)
-
 // First create the base services that don't have dependencies
 const BaseServicesLayer = Layer.mergeAll(
   DefaultLoggerLayer,
   IPCRefService.Default,
   // SentryService.Default,
-  PostHogService.Default,
   MenuService.Default,
   ElectronEventService.Default,
   RefsLayer,
@@ -69,26 +63,11 @@ const SubscribersLayer = PubSubSubscribers.pipe(
   Layer.provide(Layer.mergeAll(BaseServicesLayer, PubSubLayer))
 )
 
-// Add the IPC bridge layers (these are essential for renderer<->main communication)
-// const IpcBridgeLayer = Layer.mergeAll(
-//   IpcPubsubListenerLive,
-//   RendererBroadcasterSubscriberLive
-// ).pipe(Layer.provide(Layer.mergeAll(BaseServicesLayer, PubSubLayer)))
-
 const SerializationLayer = Layer.merge(DefaultLoggerLayer, RpcSerialization.layerNdjson)
 
 const ProtocolLayer = Layer.provide(ElectronProtocolLayer, SerializationLayer)
 
 const RpcLayer = Layer.provide(RpcServer.layer(SlideRpcs), Layer.merge(SlideLive, ProtocolLayer))
-
-// RPC serialization layer
-// const SerializationLayer = Layer.merge(DefaultLoggerLayer, RpcSerialization.layerNdjson)
-
-// First combine protocol with serialization
-// const ProtocolLayer = Layer.provide(ElectronProtocolLayer, SerializationLayer)
-
-// Create the RPC layer with the Electron protocol
-// const RpcLayer = Layer.provide(RpcServer.layer(SlideRpcs), Layer.merge(SlideLive, ProtocolLayer))
 
 // Combine all layers and handle all errors through ManagedRuntime
 // CoreLayer is intentionally declared using 'any' to overcome type issues
@@ -110,7 +89,12 @@ export {
   registerSSRProtocols,
   registerDeepLinkingProtocol,
   createVibeDir,
-  findClaudeCodeExecutable
+  findClaudeCodeExecutable,
+  syncCcusageStats,
+  startCcusageBackgroundSync,
+  initializeCcusageSync,
+  checkClaudeCodeAuth,
+  initializeClaudeCodeAuth
 }
 
 export { config }

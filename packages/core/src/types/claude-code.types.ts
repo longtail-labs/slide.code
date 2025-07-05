@@ -16,7 +16,7 @@ export interface ClaudeCodeConfig {
 export const defaultClaudeCodeConfig: ClaudeCodeConfig = {
   maxTurns: 10,
   permissionMode: 'bypassPermissions',
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'claude-sonnet-4-20250514',
   fallbackModel: 'claude-3-haiku-20240307'
 }
 

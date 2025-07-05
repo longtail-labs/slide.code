@@ -418,6 +418,64 @@ export const useCommitTask = () => {
   })
 }
 
+// Hook to stop a running task
+export const useStopTask = () => {
+  const queryClient = useQueryClient()
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<boolean, Error, string>({
+    mutationFn: async (taskId: string) => {
+      console.log('[TASK-HELPERS] 🛑 Stopping task:', taskId)
+      const success = await runRpcProgram((client) => {
+        return client.StopTask({ taskId })
+      })
+      console.log('[TASK-HELPERS] 🛑 Task stopped:', success)
+      return success
+    },
+    onSuccess: async (success, taskId) => {
+      console.log('[TASK-HELPERS] ✅ Task stop completed', taskId, success)
+      // Invalidate the task detail and tasks list to show updated status
+      await queryClient.invalidateQueries({ queryKey: TaskQueryKeys.detail(taskId) })
+      await queryClient.invalidateQueries({
+        queryKey: [...TaskQueryKeys.detail(taskId), 'withMessages']
+      })
+      await queryClient.invalidateQueries({ queryKey: TaskQueryKeys.lists() })
+
+      console.log('[TASK-HELPERS] ✅ Task stop completed and cache invalidated')
+    },
+    onError: (error) => {
+      console.error('[TASK-HELPERS] ❌ Error stopping task:', error)
+    }
+  })
+}
+
+// Hook to discard changes for a task
+export const useDiscardChanges = () => {
+  const queryClient = useQueryClient()
+  const { runRpcProgram } = useRpc()
+
+  return useMutation<boolean, Error, string>({
+    mutationFn: async (taskId: string) => {
+      console.log('[TASK-HELPERS] 🗑️ Discarding changes for task:', taskId)
+      const success = await runRpcProgram((client) => {
+        return client.DiscardChanges({ taskId })
+      })
+      console.log('[TASK-HELPERS] 🗑️ Changes discarded:', success)
+      return success
+    },
+    onSuccess: async (success, taskId) => {
+      console.log('[TASK-HELPERS] ✅ Discard changes completed', taskId, success)
+      // Invalidate the task diff query since changes are now discarded
+      await queryClient.invalidateQueries({ queryKey: [...TaskQueryKeys.detail(taskId), 'diff'] })
+
+      console.log('[TASK-HELPERS] ✅ Discard changes completed and cache invalidated')
+    },
+    onError: (error) => {
+      console.error('[TASK-HELPERS] ❌ Error discarding changes:', error)
+    }
+  })
+}
+
 // Hook to open task in GitHub Desktop
 export const useOpenInGitHubDesktop = () => {
   const { runRpcProgram } = useRpc()

@@ -7,7 +7,8 @@ import { AppReadySchema, type AppReadyState } from '@slide.code/schema'
  */
 export const initialAppReadyState: AppReadyState = {
   isReady: false,
-  error: null,
+  error: undefined,
+  errorDetails: null,
   timestamp: Date.now()
 }
 
@@ -57,12 +58,13 @@ export const markAppReady = Effect.gen(function* () {
 /**
  * Utility to mark the app as having an error
  */
-export const markAppError = (error: string) =>
+export const markAppError = (errorMessage: string) =>
   Effect.gen(function* () {
     const appReadyRef = yield* AppReadyRef
     yield* appReadyRef.update((state: AppReadyState) => ({
       ...state,
-      error,
+      error: true,
+      errorDetails: errorMessage,
       timestamp: Date.now()
     }))
   })

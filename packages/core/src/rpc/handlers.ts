@@ -7,7 +7,8 @@ import { PubSubClient } from '../services/pubsub.service.js'
 import {
   createInvalidateQuery,
   createTaskStart,
-  createTaskContinue
+  createTaskContinue,
+  createTaskStop
 } from '@slide.code/schema/messages'
 import { createProjectListInvalidation, createTypedInvalidateQuery } from '@slide.code/schema'
 
@@ -17,9 +18,9 @@ import * as fs from 'node:fs/promises'
 import * as crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { getDefaultProjectsDir, getVibeDir } from '@slide.code/shared'
-import { ensureDirectory, sanitizePathName } from '../utils/filesystem.util.js'
+import { ensureDirectory, sanitizePathName, pathExists } from '../utils/filesystem.util.js'
 import { GitRepoTag, makeGitRepo } from '../resources/GitRepo/git-repo.resource.js'
-import { dialog } from 'electron'
+import { dialog, shell } from 'electron'
 // import { ProjectRepository } from '@slide.code/db/repositories/projectRepository.js'
 
 // Utility function to format database results for Drizzle
@@ -466,6 +467,14 @@ export const SlideLive = SlideRpcs.toLayer(
 
           console.log('[RPC-HANDLER] 🔧 Creating project at path:', projectPath)
 
+          // Check if a project with this name already exists
+          const directoryExists = yield* pathExists(projectPath)
+          if (directoryExists) {
+            return yield* Effect.fail(
+              `A project with the name '${name}' already exists at: ${projectPath}`
+            )
+          }
+
           // Ensure the directory exists
           yield* ensureDirectory(projectPath)
 
@@ -651,6 +660,63 @@ export const SlideLive = SlideRpcs.toLayer(
           Effect.catchAll((error) => {
             const errorMessage = error instanceof Error ? error.message : String(error)
             console.error('[RPC-HANDLER] ❌ UnarchiveTask error:', errorMessage)
+            return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      StopTask: ({ taskId }) => {
+        console.log('[RPC-HANDLER] 🛑 StopTask called with:', { taskId })
+        return Effect.gen(function* () {
+          // Publish a TASK_STOP message for the task listener to handle
+          // The listener will find and cancel the running Claude Code agent
+          const taskStopMessage = createTaskStop(taskId)
+          yield* pubsubClient.publish(taskStopMessage)
+          console.log('[RPC-HANDLER] 🛑 Published TASK_STOP message for task:', taskId)
+
+          return true
+        })
+      },
+
+      DiscardChanges: ({ taskId }) => {
+        console.log('[RPC-HANDLER] 🗑️ DiscardChanges called with:', { taskId })
+        return Effect.gen(function* () {
+          // Get the task from database
+          const task = yield* dbService.getTask(taskId)
+          if (!task) {
+            return yield* Effect.fail(`Task not found: ${taskId}`)
+          }
+
+          // Get the project from database
+          const project = yield* dbService.getProject(task.projectId)
+          if (!project) {
+            return yield* Effect.fail(`Project not found: ${task.projectId}`)
+          }
+
+          console.log('[RPC-HANDLER] 🗑️ Discarding changes for project:', project.path)
+
+          // Initialize git repo and discard changes
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const gitRepo = yield* makeGitRepo({
+                repoPath: project.path,
+                branchName: task.branch || 'master',
+                useWorktree: task.useWorktree || false,
+                autoInit: false
+              })
+
+              // Use the proper GitRepo method to discard all changes
+              yield* gitRepo.discardAllChanges()
+
+              console.log('[RPC-HANDLER] 🗑️ Changes discarded successfully')
+            })
+          )
+
+          return true
+        }).pipe(
+          Effect.catchAll((error) => {
+            const errorMessage = String(error)
+            console.error('[RPC-HANDLER] ❌ DiscardChanges error:', errorMessage)
             return Effect.fail(errorMessage)
           })
         )
@@ -954,6 +1020,28 @@ export const SlideLive = SlideRpcs.toLayer(
             const errorMessage = error instanceof Error ? error.message : String(error)
             console.error('[RPC-HANDLER] ❌ OpenInEditor error:', errorMessage)
             return Effect.fail(errorMessage)
+          })
+        )
+      },
+
+      // External operations
+      OpenExternalLink: ({ url }) => {
+        console.log('[RPC-HANDLER] 🔗 OpenExternalLink called with:', { url })
+        return Effect.tryPromise({
+          try: () => shell.openExternal(url),
+          catch: (error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error('[RPC-HANDLER] ❌ OpenExternalLink error:', errorMessage)
+            return errorMessage
+          }
+        }).pipe(
+          Effect.tap(() => {
+            console.log('[RPC-HANDLER] ✅ External link opened successfully:', url)
+          }),
+          Effect.map(() => true),
+          Effect.catchAll((error) => {
+            console.error('[RPC-HANDLER] ❌ Failed to open external link:', error)
+            return Effect.fail(String(error))
           })
         )
       },

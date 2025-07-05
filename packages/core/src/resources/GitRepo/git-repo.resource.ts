@@ -51,6 +51,14 @@ export interface GitRepo {
     branchName: string,
     startPoint?: string
   ) => Effect.Effect<void, GitRepoError>
+  readonly resetHard: (ref?: string) => Effect.Effect<void, GitRepoError>
+  readonly cleanUntracked: (options?: {
+    force?: boolean
+    directories?: boolean
+  }) => Effect.Effect<void, GitRepoError>
+  readonly discardAllChanges: () => Effect.Effect<void, GitRepoError>
+  readonly getUntrackedFiles: () => Effect.Effect<string[], GitRepoError>
+  readonly hasCommits: () => Effect.Effect<boolean, GitRepoError>
 
   // State access
   readonly getState: () => Effect.Effect<GitRepoState>
@@ -292,6 +300,105 @@ export const makeGitRepo = (
         catch: (error) => new GitRepoError(`Failed to create branch: ${error}`)
       }).pipe(Effect.asVoid)
 
+    const resetHard = (ref?: string) =>
+      Effect.gen(function* () {
+        const repoHasCommits = yield* hasCommits()
+
+        if (!repoHasCommits) {
+          yield* Effect.logInfo('[GitRepo] No commits found, skipping reset (repository is empty)')
+          return
+        }
+
+        yield* Effect.tryPromise({
+          try: () => workingGit.reset(['--hard', ref || 'HEAD']),
+          catch: (error) => new GitRepoError(`Failed to reset hard: ${error}`)
+        })
+      })
+
+    const cleanUntracked = (options?: { force?: boolean; directories?: boolean }) =>
+      Effect.tryPromise({
+        try: () => {
+          // simple-git expects clean(mode, options) format
+          const mode = options?.force !== false ? 'f' : 'n' // 'f' for force, 'n' for dry-run
+          const cleanOptions = []
+          if (options?.directories !== false) cleanOptions.push('-d')
+
+          return workingGit.clean(mode, cleanOptions)
+        },
+        catch: (error) => new GitRepoError(`Failed to clean untracked files: ${error}`)
+      }).pipe(Effect.asVoid)
+
+    const discardAllChanges = () =>
+      Effect.gen(function* () {
+        // Get current status to log what's being discarded
+        const statusResult = yield* status()
+        const untrackedFiles = yield* getUntrackedFiles()
+        const repoHasCommits = yield* hasCommits()
+
+        // Log what we're about to discard
+        if (statusResult.modified.length > 0) {
+          yield* Effect.logInfo(
+            `[GitRepo] Discarding ${statusResult.modified.length} modified files: ${statusResult.modified.join(', ')}`
+          )
+        }
+        if (statusResult.deleted.length > 0) {
+          yield* Effect.logInfo(
+            `[GitRepo] Restoring ${statusResult.deleted.length} deleted files: ${statusResult.deleted.join(', ')}`
+          )
+        }
+        if (statusResult.staged.length > 0) {
+          yield* Effect.logInfo(
+            `[GitRepo] Unstaging ${statusResult.staged.length} staged files: ${statusResult.staged.join(', ')}`
+          )
+        }
+        if (untrackedFiles.length > 0) {
+          yield* Effect.logInfo(
+            `[GitRepo] Removing ${untrackedFiles.length} untracked files: ${untrackedFiles.join(', ')}`
+          )
+        }
+
+        if (!repoHasCommits) {
+          yield* Effect.logInfo(
+            '[GitRepo] Repository has no commits, only cleaning untracked files'
+          )
+          // Only clean untracked files since there's nothing to reset to
+          yield* cleanUntracked({ force: true, directories: true })
+        } else {
+          // First reset all tracked changes
+          yield* resetHard('HEAD')
+
+          // Then clean all untracked files and directories
+          yield* cleanUntracked({ force: true, directories: true })
+        }
+
+        yield* Effect.logInfo(
+          '[GitRepo] Successfully discarded all changes (tracked and untracked)'
+        )
+      })
+
+    const getUntrackedFiles = () =>
+      Effect.tryPromise({
+        try: async () => {
+          const status = await workingGit.status()
+          return status.not_added || []
+        },
+        catch: (error) => new GitRepoError(`Failed to get untracked files: ${error}`)
+      })
+
+    const hasCommits = () =>
+      Effect.tryPromise({
+        try: async () => {
+          try {
+            const log = await workingGit.log()
+            return log.all.length > 0
+          } catch (error) {
+            // If log fails, likely means no commits exist
+            return false
+          }
+        },
+        catch: (error) => new GitRepoError(`Failed to check for commits: ${error}`)
+      })
+
     const getState = () => Ref.get(state)
 
     // Cleanup function
@@ -333,6 +440,11 @@ export const makeGitRepo = (
       add,
       checkout,
       createBranch,
+      resetHard,
+      cleanUntracked,
+      discardAllChanges,
+      getUntrackedFiles,
+      hasCommits,
       getState
     }
   })

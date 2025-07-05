@@ -29,6 +29,7 @@ import {
   IconGitBranch
 } from '@tabler/icons-react'
 import type { Project } from '@slide.code/schema'
+import { useSelectedProjectStore } from '../../stores/selectedProjectStore'
 
 export interface Suggestion {
   icon: string
@@ -57,19 +58,27 @@ const ActionBarPresenter = ({
   isAddingProject = false
 }: ActionBarProps) => {
   const [value, setValue] = useState('')
-  const [selectedProject, setSelectedProject] = useState('')
+  const { selectedProjectId, setSelectedProjectId } = useSelectedProjectStore()
   const [attachmentType, setAttachmentType] = useState<'images' | 'project' | null>(null)
   const [newProjectName, setNewProjectName] = useState('')
   const [isNewProjectDialogOpen, setIsNewProjectDialogOpen] = useState(false)
   const [newWorktreeBranch, setNewWorktreeBranch] = useState(false)
+  const [createProjectError, setCreateProjectError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Set default project when projects load
   useEffect(() => {
-    if (projects.length > 0 && !selectedProject) {
-      setSelectedProject(projects[0].id)
+    if (projects.length > 0) {
+      // Check if the persisted project still exists in the current projects
+      const persistedProjectExists =
+        selectedProjectId && projects.some((p) => p.id === selectedProjectId)
+
+      if (!selectedProjectId || !persistedProjectExists) {
+        // If no persisted project or it doesn't exist anymore, use the first project
+        setSelectedProjectId(projects[0].id)
+      }
     }
-  }, [projects, selectedProject])
+  }, [projects, selectedProjectId, setSelectedProjectId])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -88,12 +97,12 @@ const ActionBarPresenter = ({
   }
 
   const handlePlay = () => {
-    if (value.trim() && selectedProject) {
+    if (value.trim() && selectedProjectId) {
       const prompt = value.trim()
 
       onPlay({
         prompt,
-        projectId: selectedProject,
+        projectId: selectedProjectId,
         useWorktree: newWorktreeBranch
       })
     }
@@ -108,13 +117,14 @@ const ActionBarPresenter = ({
   const handleSelectProject = async (projectId: string) => {
     if (projectId === 'new') {
       setIsNewProjectDialogOpen(true)
+      setCreateProjectError(null) // Clear any previous errors
     } else if (projectId === 'select') {
       // Use the new Electron dialog-based directory selection
       if (onSelectExistingProject) {
         try {
           const newProjectId = await onSelectExistingProject()
           if (newProjectId) {
-            setSelectedProject(newProjectId)
+            setSelectedProjectId(newProjectId)
             setAttachmentType('project')
           }
         } catch (error) {
@@ -122,27 +132,34 @@ const ActionBarPresenter = ({
         }
       }
     } else {
-      setSelectedProject(projectId)
+      setSelectedProjectId(projectId)
       setAttachmentType('project')
     }
   }
 
   const handleCreateNewProject = async () => {
-    if (newProjectName.trim()) {
-      try {
-        const newProject = await onCreateProject(newProjectName.trim())
-        if (newProject) {
-          setSelectedProject(newProject.id)
-        }
-        setNewProjectName('')
-        setIsNewProjectDialogOpen(false)
-      } catch (error) {
-        console.error('Failed to create project:', error)
+    if (!newProjectName.trim()) {
+      setCreateProjectError('Please enter a project name')
+      return
+    }
+
+    try {
+      setCreateProjectError(null) // Clear any previous errors
+      const newProject = await onCreateProject(newProjectName.trim())
+      if (newProject) {
+        setSelectedProjectId(newProject.id)
       }
+      setNewProjectName('')
+      setIsNewProjectDialogOpen(false)
+    } catch (error) {
+      console.error('Failed to create project:', error)
+      // Set user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+      setCreateProjectError(errorMessage)
     }
   }
 
-  const selectedProjectData = projects.find((p) => p.id === selectedProject)
+  const selectedProjectData = projects.find((p) => p.id === selectedProjectId)
 
   return (
     <div className="relative border rounded-xl shadow-sm overflow-hidden">
@@ -160,7 +177,7 @@ const ActionBarPresenter = ({
       <div className="flex items-center justify-between p-2 border-t">
         <div className="flex items-center gap-2">
           {/* Project Selector */}
-          <Select value={selectedProject} onValueChange={handleSelectProject}>
+          <Select value={selectedProjectId || ''} onValueChange={handleSelectProject}>
             <SelectTrigger className="w-[200px] h-8 border-gray-200 hover:bg-gray-50">
               <div className="flex items-center gap-2">
                 <IconFolder className="h-4 w-4" />
@@ -264,7 +281,15 @@ const ActionBarPresenter = ({
       </div>
 
       {/* New Project Dialog */}
-      <Dialog open={isNewProjectDialogOpen} onOpenChange={setIsNewProjectDialogOpen}>
+      <Dialog
+        open={isNewProjectDialogOpen}
+        onOpenChange={(open) => {
+          setIsNewProjectDialogOpen(open)
+          if (!open) {
+            setCreateProjectError(null) // Clear error when dialog closes
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Create New Project</DialogTitle>
@@ -279,19 +304,42 @@ const ActionBarPresenter = ({
               <Input
                 id="project-name"
                 value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
+                onChange={(e) => {
+                  setNewProjectName(e.target.value)
+                  setCreateProjectError(null) // Clear error when user starts typing
+                }}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === 'Enter' &&
+                    newProjectName.trim() &&
+                    !isCreatingProject &&
+                    !createProjectError
+                  ) {
+                    e.preventDefault()
+                    handleCreateNewProject()
+                  }
+                }}
                 placeholder="My Awesome Project"
                 className="w-full"
               />
+              {createProjectError && (
+                <p className="text-sm text-red-600 mt-1">{createProjectError}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewProjectDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsNewProjectDialogOpen(false)
+                setCreateProjectError(null)
+              }}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleCreateNewProject}
-              disabled={!newProjectName.trim() || isCreatingProject}
+              disabled={!newProjectName.trim() || isCreatingProject || !!createProjectError}
             >
               {isCreatingProject ? 'Creating...' : 'Create Project'}
             </Button>

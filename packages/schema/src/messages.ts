@@ -8,6 +8,7 @@ export const MessageTypes = {
   // Task events
   TASK_START: 'TaskStart',
   TASK_CONTINUE: 'TaskContinue',
+  TASK_STOP: 'TaskStop',
 
   // Update events
   CHECK_FOR_UPDATES: 'CheckForUpdates',
@@ -29,7 +30,9 @@ export type MessageType = (typeof MessageTypes)[keyof typeof MessageTypes]
 export const Payloads = {
   [MessageTypes.APP_READY]: Schema.Struct({
     _tag: Schema.Literal(MessageTypes.APP_READY),
-    timestamp: Schema.Number
+    timestamp: Schema.Number,
+    error: Schema.optional(Schema.Boolean),
+    errorDetails: Schema.optional(Schema.String)
   }).annotations({
     parseOptions: {
       onExcessProperty: 'error',
@@ -53,6 +56,12 @@ export const Payloads = {
     taskId: Schema.String,
     prompt: Schema.String,
     sessionId: Schema.optional(Schema.String),
+    timestamp: Schema.Number
+  }),
+
+  [MessageTypes.TASK_STOP]: Schema.Struct({
+    _tag: Schema.Literal(MessageTypes.TASK_STOP),
+    taskId: Schema.String,
     timestamp: Schema.Number
   }),
 
@@ -118,6 +127,7 @@ export type TypedMessage<T extends MessageType> = T extends keyof typeof Payload
 export type AppReadyMessage = TypedMessage<typeof MessageTypes.APP_READY>
 export type TaskStartMessage = TypedMessage<typeof MessageTypes.TASK_START>
 export type TaskContinueMessage = TypedMessage<typeof MessageTypes.TASK_CONTINUE>
+export type TaskStopMessage = TypedMessage<typeof MessageTypes.TASK_STOP>
 export type CheckForUpdatesMessage = TypedMessage<typeof MessageTypes.CHECK_FOR_UPDATES>
 export type InvalidateQueryMessage = TypedMessage<typeof MessageTypes.INVALIDATE_QUERY>
 export type SetWindowTitleMessage = TypedMessage<typeof MessageTypes.SET_WINDOW_TITLE>
@@ -139,9 +149,11 @@ export const createMessage = <T extends MessageType>(
   }) as TypedMessage<T>
 
 // Message creator functions - keeping only what's used
-export const createAppReady = () =>
+export const createAppReady = (error?: boolean, errorMessage?: string) =>
   createMessage(MessageTypes.APP_READY, {
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    ...(error !== undefined && { error }),
+    ...(errorMessage && { errorDetails: errorMessage })
   })
 
 export const createTaskStart = (taskId: string) =>
@@ -155,6 +167,12 @@ export const createTaskContinue = (taskId: string, prompt: string, sessionId?: s
     taskId,
     prompt,
     sessionId,
+    timestamp: Date.now()
+  })
+
+export const createTaskStop = (taskId: string) =>
+  createMessage(MessageTypes.TASK_STOP, {
+    taskId,
     timestamp: Date.now()
   })
 

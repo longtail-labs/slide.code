@@ -4,26 +4,24 @@ import fixPath from 'fix-path'
 // This must be the first thing to run
 fixPath()
 
-import { app, globalShortcut, BrowserWindow, dialog } from 'electron'
+import { app } from 'electron'
 import {
   configurePerformanceOptimizations,
   ensureSingleInstance,
   SlideRuntime,
-  UpdateRef,
   config,
   MenuService,
   PubSubClient,
   ElectronEventService,
-  PostHogService,
   registerSSRProtocols,
-  GlobalShortcutService,
   registerDeepLinkingProtocol,
   createVibeDir,
   UserRef,
-  DatabaseService
+  DatabaseService,
+  initializeCcusageSync,
+  initializeClaudeCodeAuth
 } from '@slide.code/core'
 import { Effect, Fiber, Match, Stream } from 'effect'
-import path from 'path'
 import log from 'electron-log'
 
 import { createAppReady } from '@slide.code/schema/messages'
@@ -55,11 +53,9 @@ const program = Effect.gen(function* () {
     // Get services (these are now scoped to the runtime)
     log.info('[MAIN] 🛠️ Initializing services')
     // const sentry = yield* SentryService
-    const update = yield* UpdateRef
     const menuService = yield* MenuService
     const pubsub = yield* PubSubClient
     const electronEventService = yield* ElectronEventService // Get the electron event service
-    const posthog = yield* PostHogService // Get the PostHog service
     const userRef = yield* UserRef
     const dbService = yield* DatabaseService
     log.info('[MAIN] ✅ Services initialized')
@@ -84,27 +80,8 @@ const program = Effect.gen(function* () {
     // Get configuration using Effect Config
     yield* Effect.logInfo('Loading configuration')
     log.info('[MAIN] ⚙️ Loading configuration')
-    const updateConfig = yield* config.updateConfig
-    const posthogConfig = yield* config.posthogConfig
-    const sentryConfig = yield* config.sentryConfig
     const dbConfig = yield* config.databaseConfig
     log.info('[MAIN] ✅ Configuration loaded')
-
-    // Initialize PostHog if API key is available
-    if (posthogConfig.apiKey) {
-      yield* Effect.logInfo('Initializing PostHog')
-      log.info('[MAIN] 📊 Initializing PostHog')
-      yield* posthog.initialize({
-        ...posthogConfig,
-        apiKey: posthogConfig.apiKey
-      })
-
-      yield* posthog.captureAppLaunched()
-      log.info('[MAIN] ✅ PostHog initialized and app launch captured')
-    } else {
-      yield* Effect.logInfo('Skipping PostHog initialization - API key not provided')
-      log.info('[MAIN] ⚠️ Skipping PostHog initialization - API key not provided')
-    }
 
     // Wait for app to be ready before proceeding
     log.info('[MAIN] ⏳ Waiting for Electron app to be ready')
@@ -112,31 +89,15 @@ const program = Effect.gen(function* () {
     yield* Effect.logInfo('📱 App ready, starting up')
     log.info('[MAIN] ✅ Electron app is ready, continuing startup')
 
-    // Initialize the update service
-    if (updateConfig.updateSiteURL) {
-      yield* Effect.logInfo('Initializing UpdateService', updateConfig)
-      log.info('[MAIN] 🔄 Initializing UpdateService with URL:', updateConfig.updateSiteURL)
-      yield* update.initialize({
-        updateSiteURL: updateConfig.updateSiteURL,
-        checkInterval: updateConfig.checkInterval,
-        automaticChecks: updateConfig.automaticChecks
-      })
-      log.info('[MAIN] ✅ UpdateService initialized')
-    } else {
-      yield* Effect.logInfo('Skipping UpdateService initialization - no URL provided')
-      log.info('[MAIN] ⚠️ Skipping UpdateService initialization - no URL provided')
-    }
-
     try {
       // Initialize and run migrations in one step
       log.info('[MAIN] 🗄️ Initializing database and running migrations', dbConfig)
       yield* dbService.initAndMigrate(dbConfig)
       log.info('[MAIN] ✅ Database initialized and migrated successfully')
-      // logger.info('Database initialized and migrated successfully')
     } catch (error) {
-      // logger.error('Database initialization failed:', error)
       log.error('[MAIN] ❌ Database initialization failed:', error)
-      // actions.initFail(`Failed to initialize database. Please restart the application. ${error}`)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      yield* pubsub.publish(createAppReady(true, `Database initialization failed: ${errorMessage}`))
       return yield* Effect.fail(error)
     }
 
@@ -156,11 +117,8 @@ const program = Effect.gen(function* () {
           return yield* Match.value(event._tag).pipe(
             Match.when('window-all-closed', () =>
               Effect.gen(function* () {
-                // if (process.platform !== 'darwin') {
-                yield* Effect.logInfo('Quitting app on window-all-closed (non-Darwin platform)')
                 app.quit()
                 app.exit(0)
-                // }
               })
             ),
             Match.when('activate', () =>
@@ -202,30 +160,39 @@ const program = Effect.gen(function* () {
     log.info('[MAIN] ✅ Application menu created')
     // yield* globalShortcutService.initialize
 
-    // Send app ready event to trigger SSR demo
+    // Fork background services to run independently
+    log.info('[MAIN] 🚀 Starting background services')
+
+    // Initialize ccusage sync in background
     log.info('[MAIN] 📢 Publishing AppReady event')
     yield* pubsub.publish(createAppReady())
     log.info('[MAIN] ✅ AppReady event published')
 
-    // yield* subscription.openCheckout('price_1RCoB1QQ3xOop9wog1ScGOe1')
+    yield* Effect.fork(initializeCcusageSync)
 
-    // yield* subscription.refreshSubscriptionStatus
+    // Initialize Claude Code auth checking in background
+    yield* Effect.fork(initializeClaudeCodeAuth)
 
-    // yield* auth.loginOrCreateAccount()
-    // yield* auth.refreshTokens
-    // yield* auth.createBillingPortal()
-    // yield* api.tapAuthData()
-    // yield* auth.refreshTokens
-    // yield* api.createStripeCustomer()
+    log.info('[MAIN] ✅ Background services started')
 
-    // Add proper error handling for API calls
-    // const emojiResult = yield* api.getEmojiForTask('Build a rocket')
-    // console.log('Emoji:', emojiResult)
-
-    // const stripeCustomer = yield* api.createStripeCustomer()
-    // console.log('Stripe customer:', stripeCustomer)
+    // Send app ready event to trigger SSR demo - only after everything is successfully initialized
 
     yield* Effect.never
+  } catch (error) {
+    log.error('[MAIN] ❌ Critical error in main program:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+
+    // Try to publish error message if pubsub is available
+    try {
+      const pubsub = yield* PubSubClient
+      yield* pubsub.publish(
+        createAppReady(true, `Application initialization failed: ${errorMessage}`)
+      )
+    } catch (pubsubError) {
+      log.error('[MAIN] ❌ Failed to publish AppReady error message:', pubsubError)
+    }
+
+    return yield* Effect.fail(error)
   } finally {
     yield* Effect.logInfo('Main program exiting')
     log.info('[MAIN] 🔚 Main program exiting')
@@ -233,10 +200,30 @@ const program = Effect.gen(function* () {
 })
 
 // Error handling
-const main = program.pipe(Effect.catchTags({}))
+const main = program.pipe(
+  Effect.catchTags({
+    // Handle specific error types if needed
+  }),
+  Effect.catchAll((error) => {
+    log.error('[MAIN] ❌ Unhandled error in main program:', error)
+
+    // Try to send error message to renderer
+    return Effect.gen(function* () {
+      try {
+        const pubsub = yield* PubSubClient
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        yield* pubsub.publish(createAppReady(true, `Application startup failed: ${errorMessage}`))
+      } catch (pubsubError) {
+        log.error('[MAIN] ❌ Failed to publish error message:', pubsubError)
+      }
+
+      return yield* Effect.fail(error)
+    })
+  })
+)
 
 export function initApp() {
-  SlideRuntime.runPromise(Effect.withConfigProvider(program, config.viteConfigProvider())).catch(
+  SlideRuntime.runPromise(Effect.withConfigProvider(main, config.viteConfigProvider())).catch(
     (error) => {
       console.error('Error in main', error)
 

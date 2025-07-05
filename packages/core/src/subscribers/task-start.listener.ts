@@ -1,16 +1,18 @@
-import { Effect, Layer, Queue, Stream } from 'effect'
+import { Effect, Layer, Queue, Stream, Ref } from 'effect'
 import { PubSubClient } from '../services/pubsub.service.js'
 import { DatabaseService } from '../services/database.service.js'
 import {
   MessageTypes,
   TaskStartMessage,
   TaskContinueMessage,
+  TaskStopMessage,
   createInvalidateQuery
 } from '@slide.code/schema/messages'
 import { TaskQueryKeys } from '@slide.code/schema'
 import {
   ClaudeCodeAgentTag,
-  makeClaudeCodeAgent
+  makeClaudeCodeAgent,
+  type ClaudeCodeAgent
 } from '../resources/ClaudeCodeAgent/claude-code-agent.resource.js'
 import { findClaudeCodeExecutable } from '../effects/findClaudeCodeExecutable.effect.js'
 import type { SdkMessage } from '@slide.code/schema'
@@ -26,6 +28,9 @@ const make = Effect.gen(function* () {
   const pubsub = yield* PubSubClient
   const dbService = yield* DatabaseService
 
+  // Create a ref to store running agents by taskId
+  const runningAgents = yield* Ref.make<Map<string, ClaudeCodeAgent>>(new Map())
+
   // Get a subscription to all messages
   const subscription = yield* pubsub.subscribe()
 
@@ -38,12 +43,14 @@ const make = Effect.gen(function* () {
         // Handle both TASK_START and TASK_CONTINUE messages
         if (
           message._tag === MessageTypes.TASK_START ||
-          message._tag === MessageTypes.TASK_CONTINUE
+          message._tag === MessageTypes.TASK_CONTINUE ||
+          message._tag === MessageTypes.TASK_STOP
         ) {
           const isStartMessage = message._tag === MessageTypes.TASK_START
           const isContinueMessage = message._tag === MessageTypes.TASK_CONTINUE
+          const isStopMessage = message._tag === MessageTypes.TASK_STOP
 
-          const taskMessage = message as TaskStartMessage | TaskContinueMessage
+          const taskMessage = message as TaskStartMessage | TaskContinueMessage | TaskStopMessage
           const taskId = taskMessage.taskId
           const sessionId = isContinueMessage
             ? (taskMessage as TaskContinueMessage).sessionId
@@ -51,6 +58,55 @@ const make = Effect.gen(function* () {
           const continuePrompt = isContinueMessage
             ? (taskMessage as TaskContinueMessage).prompt
             : undefined
+
+          // Handle TASK_STOP messages
+          if (isStopMessage) {
+            yield* Effect.fork(
+              Effect.gen(function* () {
+                console.log('[TaskStartListener] 🛑 Handling TASK_STOP for task:', taskId)
+                yield* Effect.logInfo(
+                  `[TaskStartListener] 🛑 Stopping Claude Code Agent for task: ${taskId}`
+                )
+
+                // Get the running agent for this task
+                const agents = yield* Ref.get(runningAgents)
+                const agent = agents.get(taskId)
+
+                if (agent) {
+                  console.log('[TaskStartListener] 🛑 Found running agent, cancelling...')
+                  // Cancel the agent - this will handle abort controller and status updates
+                  yield* agent.cancel()
+
+                  // Remove the agent from our tracking
+                  yield* Ref.update(runningAgents, (agents) => {
+                    const newAgents = new Map(agents)
+                    newAgents.delete(taskId)
+                    return newAgents
+                  })
+
+                  console.log('[TaskStartListener] ✅ Agent cancelled and removed from tracking')
+                } else {
+                  console.log('[TaskStartListener] ⚠️ No running agent found for task:', taskId)
+                  // Fallback: just update the task status if no agent is running
+                  yield* dbService.updateTask(taskId, { status: 'stopped' })
+                }
+
+                // Invalidate task queries to update the UI
+                yield* pubsub.publish(createInvalidateQuery([...TaskQueryKeys.lists()]))
+                yield* pubsub.publish(createInvalidateQuery([...TaskQueryKeys.detail(taskId)]))
+                yield* pubsub.publish(
+                  createInvalidateQuery([...TaskQueryKeys.detail(taskId), 'withMessages'])
+                )
+
+                console.log('[TaskStartListener] ✅ Task stop handling completed:', taskId)
+              }).pipe(
+                Effect.catchAll((error) =>
+                  Effect.logError(`Error handling TASK_STOP message: ${error}`)
+                )
+              )
+            )
+            return // Exit early for TASK_STOP messages
+          }
 
           yield* Effect.fork(
             Effect.gen(function* () {
@@ -145,13 +201,25 @@ const make = Effect.gen(function* () {
                         workingDirectory: project.path,
                         maxTurns: 50,
                         permissionMode: 'bypassPermissions',
-                        model: 'claude-3-5-sonnet-20241022',
+                        model: 'claude-sonnet-4-20250514',
                         pathToClaudeCodeExecutable: claudeExecutablePath
                       })
 
                       console.log(
                         '[TaskStartListener] 🔧 Claude Code Agent initialized for project:',
                         project.path
+                      )
+
+                      // Store the agent in our tracking ref
+                      yield* Ref.update(runningAgents, (agents) => {
+                        const newAgents = new Map(agents)
+                        newAgents.set(task.id, agent)
+                        return newAgents
+                      })
+
+                      console.log(
+                        '[TaskStartListener] 📝 Agent stored in tracking for task:',
+                        task.id
                       )
 
                       // Subscribe to agent messages and save them to database
@@ -284,6 +352,17 @@ const make = Effect.gen(function* () {
                               `[TaskStartListener] Agent run has concluded with status: ${status}`
                             )
 
+                            // Remove the agent from tracking since it's completed
+                            yield* Ref.update(runningAgents, (agents) => {
+                              const newAgents = new Map(agents)
+                              newAgents.delete(task.id)
+                              return newAgents
+                            })
+                            console.log(
+                              '[TaskStartListener] 🗑️ Agent removed from tracking for task:',
+                              task.id
+                            )
+
                             // If the agent finished successfully, update task status to "completed" and check if needs review
                             if (status === 'finished') {
                               console.log(
@@ -328,17 +407,20 @@ const make = Effect.gen(function* () {
                                 '[TaskStartListener] 🔄 Task queries invalidated for UI updates'
                               )
                             } else if (status === 'error' || status === 'cancelled') {
-                              // If the agent failed or was cancelled, update status to 'failed'
+                              // If the agent failed or was cancelled, update status to 'failed' or 'stopped'
+                              const taskStatus = status === 'cancelled' ? 'stopped' : 'failed'
                               console.log(
-                                `[TaskStartListener] 🔄 Agent ${status}, updating task status to "failed"`
+                                `[TaskStartListener] 🔄 Agent ${status}, updating task status to "${taskStatus}"`
                               )
 
                               yield* dbService.updateTask(task.id, {
-                                status: 'failed'
+                                status: taskStatus
                               })
 
                               console.log(
-                                '[TaskStartListener] ✅ Task status updated to "failed" for task:',
+                                '[TaskStartListener] ✅ Task status updated to "' +
+                                  taskStatus +
+                                  '" for task:',
                                 task.id
                               )
 
@@ -397,6 +479,28 @@ const make = Effect.gen(function* () {
   )
 
   yield* Effect.addFinalizer(() => Effect.logInfo('TaskStartListener stopped'))
+
+  // Add cleanup for running agents
+  yield* Effect.addFinalizer(() =>
+    Effect.gen(function* () {
+      const agents = yield* Ref.get(runningAgents)
+      if (agents.size > 0) {
+        yield* Effect.logInfo(`[TaskStartListener] Cleaning up ${agents.size} running agents`)
+
+        // Cancel all running agents
+        yield* Effect.forEach(
+          Array.from(agents.values()),
+          (agent) => agent.cancel().pipe(Effect.orDie),
+          { concurrency: 'unbounded' }
+        )
+
+        // Clear the agents ref
+        yield* Ref.set(runningAgents, new Map())
+
+        yield* Effect.logInfo('[TaskStartListener] All running agents cleaned up')
+      }
+    })
+  )
 
   return Effect.logInfo('TaskStartListener started')
 }).pipe(Effect.annotateLogs({ module: 'task-start-listener' }))

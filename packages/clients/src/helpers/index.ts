@@ -18,3 +18,6 @@ export * from './tasks/index.js'
 
 // Project-related helpers
 export * from './projects/index.js'
+
+// External operations helpers
+export * from './external/index.js'

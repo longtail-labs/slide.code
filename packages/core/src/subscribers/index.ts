@@ -1,7 +1,8 @@
 import { Effect, Layer } from 'effect'
 
 import { AppLaunchedFlow } from '../flows/app-and-task.flow.js'
-import { RendererBroadcasterSubscriberLive, IpcPubsubListenerLive } from './ipcPubsub/index.js'
+import { RendererBroadcasterSubscriberLive } from './ipcPubsub/renderer.broadcaster.js'
+import { IpcPubsubListenerLive } from './ipcPubsub/ipc-pubsub.listener.js'
 import { TaskStartListener } from './task-start.listener.js'
 
 export * from './ipcPubsub/index.js'

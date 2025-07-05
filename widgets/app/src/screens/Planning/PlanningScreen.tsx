@@ -7,13 +7,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger
+} from '@/components/ui/context-menu'
 import {
   IconPlayerPlayFilled,
   IconSettings,
   IconBrandGithub,
   IconBrandDiscord,
   IconMoon,
-  IconSun
+  IconSun,
+  IconAlertCircle,
+  IconLoader2,
+  IconFolder,
+  IconArchive
 } from '@tabler/icons-react'
 import {
   Sheet,
@@ -34,7 +45,18 @@ import {
   NavigationMenuTrigger
 } from '@/components/ui/navigation-menu'
 import { useTaskToasts } from '@/hooks'
-import { useUserRef, useTasks, useArchivedTasks, groupTasksByStatus } from '@slide.code/clients'
+import {
+  useUserRef,
+  useTasks,
+  useArchivedTasks,
+  groupTasksByStatus,
+  useAppReadyRef,
+  useOpenExternalLink,
+  useOpenGitHubLink,
+  useOpenDiscordLink,
+  useOpenDocumentationLink,
+  useArchiveTask
+} from '@slide.code/clients'
 import type { TaskWithProject as RpcTask, DailyUsage, SessionUsage } from '@slide.code/schema'
 import { getRelativeTimeString } from '@/lib/util'
 
@@ -85,11 +107,12 @@ const useTheme = () => {
 // Header Navigation Component
 const HeaderNavigation = ({ onSettingsClick }: { onSettingsClick: () => void }) => {
   const { theme, toggleTheme } = useTheme()
+  const { mutate: openExternalLink } = useOpenExternalLink()
+  const { openRepository } = useOpenGitHubLink()
+  const { openInvite } = useOpenDiscordLink()
 
   const handleExternalLink = (url: string) => {
-    if (typeof window !== 'undefined') {
-      window.open(url, '_blank')
-    }
+    openExternalLink(url)
   }
 
   return (
@@ -101,7 +124,7 @@ const HeaderNavigation = ({ onSettingsClick }: { onSettingsClick: () => void }) 
               variant="ghost"
               size="sm"
               className="h-10 w-10 p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              onClick={() => handleExternalLink('https://github.com')}
+              onClick={() => openRepository('longtailLABS', 'slide.code')}
               title="GitHub"
             >
               <IconBrandGithub
@@ -117,7 +140,7 @@ const HeaderNavigation = ({ onSettingsClick }: { onSettingsClick: () => void }) 
               variant="ghost"
               size="sm"
               className="h-10 w-10 p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              onClick={() => handleExternalLink('https://discord.gg')}
+              onClick={() => openInvite('your-discord-invite')}
               title="Discord"
             >
               <IconBrandDiscord
@@ -243,6 +266,7 @@ const TaskListItem = ({
   isWorking?: boolean
 }) => {
   const navigate = useNavigate()
+  const archiveTask = useArchiveTask()
 
   const handleTaskClick = () => {
     // Generate a fake task ID based on the task title
@@ -255,81 +279,103 @@ const TaskListItem = ({
     })
   }
 
-  return (
-    <div
-      className={`group flex justify-between items-center px-4 py-2.5 rounded-lg transition-all duration-200 cursor-pointer relative ${
-        isSelected
-          ? 'bg-orange-50/80 dark:bg-orange-900/20 shadow-sm'
-          : isWaiting
-            ? 'bg-orange-50/80 dark:bg-orange-900/20 hover:bg-orange-100/90 dark:hover:bg-orange-800/30'
-            : 'hover:bg-gray-50/80 dark:hover:bg-gray-800/50'
-      }`}
-      onClick={handleTaskClick}
-    >
-      <div className="flex flex-col min-w-0 flex-1">
-        <span
-          className={`font-medium text-base leading-tight ${isSelected ? 'text-[#CB661C] dark:text-orange-200' : 'text-gray-900 dark:text-gray-100'}`}
-        >
-          {task.title}
-        </span>
-        <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
-          <div className="flex flex-col">
-            <span className="font-medium">{task.projectName}</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate max-w-xs">
-              {task.projectPath}
-            </span>
-          </div>
-          {task.branch && (
-            <>
-              <span className="text-gray-300 dark:text-gray-600">·</span>
-              <span className="truncate max-w-xs font-mono text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
-                {task.branch}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center space-x-4 ml-4">
-        {task.status && (
-          <div className="flex flex-col items-end">
-            <StatusBadge status={task.status} color={task.statusColor as any} />
-            <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">{task.date}</span>
-          </div>
-        )}
-        {!task.status && (
-          <div className="flex flex-col items-end">
-            <span className="text-xs text-gray-400 dark:text-gray-500">{task.date}</span>
-          </div>
-        )}
-        {(task.stats || isWorking) && (
-          <div className="flex flex-col items-end">
-            {task.stats && (
-              <div className="flex space-x-3 text-sm font-mono">
-                <span className="text-emerald-600 font-bold">+{task.stats.additions}</span>
-                <span className="text-red-500 font-bold">-{task.stats.deletions}</span>
-              </div>
-            )}
-            {isWorking && (
-              <div className="relative w-16 h-px mt-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <WorkingIndicator />
-              </div>
-            )}
-          </div>
-        )}
+  const handleArchive = () => {
+    archiveTask.mutate(task.id, {
+      onSuccess: () => {
+        // Task will be removed from the list automatically due to data refetch
+      }
+    })
+  }
 
-        {/* Play button that appears on hover */}
-        <Button
-          size="sm"
-          className="h-8 w-8 rounded-full p-0 bg-black hover:bg-gray-800 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-          onClick={(e) => {
-            e.stopPropagation()
-            handleTaskClick()
-          }}
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          className={`group flex justify-between items-center px-4 py-2.5 rounded-lg transition-all duration-200 cursor-pointer relative ${
+            isSelected
+              ? 'bg-orange-50/80 dark:bg-orange-900/20 shadow-sm'
+              : isWaiting
+                ? 'bg-orange-50/80 dark:bg-orange-900/20 hover:bg-orange-100/90 dark:hover:bg-orange-800/30'
+                : 'hover:bg-gray-50/80 dark:hover:bg-gray-800/50'
+          }`}
+          onClick={handleTaskClick}
         >
-          <IconPlayerPlayFilled size={16} className="text-white" />
-        </Button>
-      </div>
-    </div>
+          <div className="flex flex-col min-w-0 flex-1">
+            <span
+              className={`font-medium text-base leading-tight line-clamp-6 ${isSelected ? 'text-[#CB661C] dark:text-orange-200' : 'text-gray-900 dark:text-gray-100'}`}
+            >
+              {task.title}
+            </span>
+            <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <div className="flex flex-col">
+                <span className="font-medium">{task.projectName}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate max-w-xs">
+                  {task.projectPath}
+                </span>
+              </div>
+              {task.branch && (
+                <>
+                  <span className="text-gray-300 dark:text-gray-600">·</span>
+                  <span className="truncate max-w-xs font-mono text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                    {task.branch}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center space-x-4 ml-4">
+            {task.status && (
+              <div className="flex flex-col items-end">
+                <StatusBadge status={task.status} color={task.statusColor as any} />
+                <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">{task.date}</span>
+              </div>
+            )}
+            {!task.status && (
+              <div className="flex flex-col items-end">
+                <span className="text-xs text-gray-400 dark:text-gray-500">{task.date}</span>
+              </div>
+            )}
+            {(task.stats || isWorking) && (
+              <div className="flex flex-col items-end">
+                {task.stats && (
+                  <div className="flex space-x-3 text-sm font-mono">
+                    <span className="text-emerald-600 font-bold">+{task.stats.additions}</span>
+                    <span className="text-red-500 font-bold">-{task.stats.deletions}</span>
+                  </div>
+                )}
+                {isWorking && (
+                  <div className="relative w-16 h-px mt-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <WorkingIndicator />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Play button that appears on hover */}
+            <Button
+              size="sm"
+              className="h-8 w-8 rounded-full p-0 bg-black hover:bg-gray-800 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleTaskClick()
+              }}
+            >
+              <IconPlayerPlayFilled size={16} className="text-white" />
+            </Button>
+          </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={handleTaskClick}>
+          <IconFolder size={16} className="mr-2" />
+          Open
+        </ContextMenuItem>
+        <ContextMenuItem onClick={handleArchive} disabled={archiveTask.isPending}>
+          <IconArchive size={16} className="mr-2" />
+          Archive
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
@@ -354,6 +400,12 @@ const TaskGroup = ({ title, tasks }: { title: string; tasks: Task[] }) => {
 
 const PlanningScreen: React.FC = () => {
   const { showTaskCompletedToast, showTaskFailedToast, showTaskStartedToast } = useTaskToasts()
+  const { openInvite } = useOpenDiscordLink()
+  const { openRepository } = useOpenGitHubLink()
+
+  // App ready state checking
+  const [appReady, setAppReady] = useAppReadyRef()
+
   const { data: rpcTasks, isLoading, error } = useTasks(false) // Don't include archived
   const {
     data: archivedTasks,
@@ -364,7 +416,18 @@ const PlanningScreen: React.FC = () => {
   console.log('RPCTASKS', rpcTasks)
   console.log('ARCHIVED TASKS', archivedTasks)
 
-  const { pending, running, completed, failed, stopped, needsReview } = useMemo(() => {
+  // Log app ready state changes
+  useEffect(() => {
+    console.log('[PLANNING-SCREEN] 📊 App Ready state changed:', {
+      isReady: appReady?.isReady,
+      error: appReady?.error,
+      errorDetails: appReady?.errorDetails,
+      timestamp: appReady?.timestamp,
+      fullState: appReady
+    })
+  }, [appReady])
+
+  const { pending, running, completed, failed, needsReview } = useMemo(() => {
     const tasks = Array.isArray(rpcTasks) ? rpcTasks : []
     const grouped = groupTasksByStatus(tasks)
 
@@ -376,12 +439,18 @@ const PlanningScreen: React.FC = () => {
     const filterNeedsReview = (tasks: any[]) =>
       tasks.filter((task) => !task.needsReview).map(mapRpcTaskToViewTask)
 
+    // Merge stopped tasks into completed since they're essentially completed work
+    const completedRpcTasks = [...(grouped.completed || []), ...(grouped.stopped || [])].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    )
+
+    const completedTasks = filterNeedsReview(completedRpcTasks)
+
     return {
       pending: filterNeedsReview(grouped.pending || []),
       running: filterNeedsReview(grouped.running || []),
-      completed: filterNeedsReview(grouped.completed || []),
+      completed: completedTasks,
       failed: filterNeedsReview(grouped.failed || []),
-      stopped: filterNeedsReview(grouped.stopped || []),
       needsReview: needsReviewTasks
     }
   }, [rpcTasks])
@@ -437,6 +506,62 @@ const PlanningScreen: React.FC = () => {
     }
   }
 
+  // Show loading state while app is initializing
+  if (!appReady?.isReady && !appReady?.error) {
+    return (
+      <motion.div
+        className="flex flex-col items-center justify-center h-full w-full bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100"
+        variants={variants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+      >
+        <div className="text-center space-y-4">
+          <IconLoader2 size={48} className="mx-auto animate-spin text-[#CB661C]" />
+          <div>
+            <h2 className="text-2xl font-semibold mb-2">Starting SlideCode...</h2>
+            <p className="text-gray-600 dark:text-gray-400">Initializing services and database</p>
+          </div>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // Show error state if app failed to initialize
+  if (appReady?.error) {
+    return (
+      <motion.div
+        className="flex flex-col items-center justify-center h-full w-full bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 p-8"
+        variants={variants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+      >
+        <div className="max-w-md w-full">
+          <Alert variant="destructive">
+            <IconAlertCircle className="h-4 w-4" />
+            <AlertTitle>Application Error</AlertTitle>
+            <AlertDescription className="mt-2">
+              SlideCode failed to initialize properly. Please check the logs for more details.
+              <br />
+              <br />
+              <strong>Error:</strong> {appReady.errorDetails || 'Unknown error occurred'}
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4 text-center">
+            <Button onClick={() => window.location.reload()} variant="outline" className="mr-2">
+              Retry
+            </Button>
+            <Button onClick={() => openInvite('your-discord-invite')} variant="ghost">
+              Report Issue
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // Main application content - only render when app is ready
   return (
     <motion.div
       className="flex flex-col h-full w-full bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 font-recursive transition-colors"
@@ -536,11 +661,7 @@ const PlanningScreen: React.FC = () => {
                 <div className="text-xs text-gray-400 pt-2 border-t flex items-center gap-1">
                   <span>Powered by</span>
                   <button
-                    onClick={() => {
-                      if (typeof window !== 'undefined') {
-                        window.open('https://github.com/ryoppippi/ccusage', '_blank')
-                      }
-                    }}
+                    onClick={() => openRepository('ryoppippi', 'ccusage')}
                     className="text-blue-500 hover:text-blue-600 hover:underline transition-colors"
                   >
                     ccusage
@@ -602,7 +723,6 @@ const PlanningScreen: React.FC = () => {
                   <TaskGroup title="Pending" tasks={pending} />
                   <TaskGroup title="Completed" tasks={completed} />
                   <TaskGroup title="Failed" tasks={failed} />
-                  <TaskGroup title="Stopped" tasks={stopped} />
                 </div>
               )}
             </TabsContent>

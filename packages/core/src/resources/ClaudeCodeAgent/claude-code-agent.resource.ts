@@ -116,21 +116,34 @@ export const makeClaudeCodeAgent = (
 
         log.info('[ClaudeCodeAgent] Starting query with options:', queryOptions.options)
 
-        // Create a stream from the async iterable with proper error handling
-        const queryStream = Stream.fromAsyncIterable(
-          query(queryOptions) as AsyncIterable<SDKMessage>,
-          (error) => {
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            log.error('[ClaudeCodeAgent] Stream error:', error)
-            return new ClaudeCodeError(`Stream error: ${errorMessage}`)
+        // Wrap the query execution to catch any unhandled promise rejections
+        const queryIterable = (() => {
+          try {
+            return query(queryOptions) as AsyncIterable<SDKMessage>
+          } catch (error) {
+            log.error('[ClaudeCodeAgent] Query execution error:', error)
+            throw error
           }
-        )
+        })()
+
+        // Create a stream from the async iterable with proper error handling
+        const queryStream = Stream.fromAsyncIterable(queryIterable, (error) => {
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          log.error('[ClaudeCodeAgent] Stream error:', error)
+
+          // Handle process termination gracefully (exit code 143 = SIGTERM)
+          if (errorMessage.includes('exited with code 143')) {
+            log.info('[ClaudeCodeAgent] Process terminated via SIGTERM (expected for cancellation)')
+            return new ClaudeCodeError('Process cancelled')
+          }
+
+          return new ClaudeCodeError(`Stream error: ${errorMessage}`)
+        })
 
         // Process each message through the stream pipeline
         const processStream = queryStream.pipe(
           Stream.tap((sdkMessage: SDKMessage) => {
             // Convert SDK message to our schema message
-            console.log('PRESDK MESSAGE', sdkMessage)
             const schemaMessage = convertSDKMessageToSchemaMessage(sdkMessage)
             console.log(
               '[ClaudeCodeAgent] 🔧 Converted SDK message to schema message:',
@@ -161,12 +174,25 @@ export const makeClaudeCodeAgent = (
               log.info('[ClaudeCodeAgent] Agent run finished successfully.')
             } else {
               const prettyError = Cause.pretty(exit.cause)
-              yield* SubscriptionRef.update(state, (s) => ({
-                ...s,
-                status: 'error' as AgentStatus,
-                error: prettyError
-              }))
-              log.error('[ClaudeCodeAgent] Agent run failed:', prettyError)
+
+              // Check if this was a cancellation (process terminated)
+              if (
+                prettyError.includes('Process cancelled') ||
+                prettyError.includes('exited with code 143')
+              ) {
+                yield* SubscriptionRef.update(state, (s) => ({
+                  ...s,
+                  status: 'cancelled' as AgentStatus
+                }))
+                log.info('[ClaudeCodeAgent] Agent run was cancelled.')
+              } else {
+                yield* SubscriptionRef.update(state, (s) => ({
+                  ...s,
+                  status: 'error' as AgentStatus,
+                  error: prettyError
+                }))
+                log.error('[ClaudeCodeAgent] Agent run failed:', prettyError)
+              }
             }
             yield* Ref.set(abortControllerRef, null)
           })

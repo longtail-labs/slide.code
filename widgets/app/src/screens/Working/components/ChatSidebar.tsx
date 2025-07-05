@@ -60,6 +60,16 @@ const isTodoWriteInput = (input: unknown): input is TodoWriteInput =>
   'todos' in input &&
   Array.isArray((input as any).todos)
 
+// Type guard for thinking content
+type ThinkingContent = { type: 'thinking'; thinking: string; signature?: string }
+const isThinkingContent = (content: unknown): content is ThinkingContent =>
+  typeof content === 'object' &&
+  content !== null &&
+  'type' in content &&
+  (content as any).type === 'thinking' &&
+  'thinking' in content &&
+  typeof (content as any).thinking === 'string'
+
 // --- UI Components for Message Blocks ---
 const ToolUseBlockComponent = ({ block }: { block: ToolUseBlock }) => {
   const { name, input } = block
@@ -234,6 +244,24 @@ const TextBlockComponent = ({ block }: { block: TextBlock }) => {
   return <p className="text-xs">{block.text}</p>
 }
 
+const ThinkingContentComponent = ({ content }: { content: ThinkingContent }) => {
+  return (
+    <Alert className="my-0.5 py-1 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+      <AlertTitle className="flex items-center gap-1 mb-1">
+        <span className="text-sm">🤔</span>
+        <Badge variant="secondary" className="text-xs text-blue-800 dark:text-blue-200">
+          Thinking
+        </Badge>
+      </AlertTitle>
+      <AlertDescription className="!pl-0">
+        <div className="text-xs text-blue-700 dark:text-blue-300 italic font-mono whitespace-pre-wrap">
+          {content.thinking.trim()}
+        </div>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
 const MessageContent = ({
   content
 }: {
@@ -247,6 +275,11 @@ const MessageContent = ({
     return (
       <div className="space-y-0.5">
         {content.map((block, index) => {
+          // Handle thinking content
+          if (isThinkingContent(block)) {
+            return <ThinkingContentComponent key={index} content={block} />
+          }
+
           switch (block.type) {
             case 'tool_use':
               return <ToolUseBlockComponent key={index} block={block as ToolUseBlock} />
@@ -274,6 +307,24 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ task }: ChatSidebarProps) {
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }
+
+  // Scroll to bottom when messages change
+  React.useEffect(() => {
+    scrollToBottom()
+  }, [task.chatMessages])
+
+  // Scroll to bottom when task changes (when opening a task)
+  React.useEffect(() => {
+    scrollToBottom()
+  }, [task.id])
+
   const formatMessageTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], {
       hour: '2-digit',
@@ -297,7 +348,6 @@ export function ChatSidebar({ task }: ChatSidebarProps) {
   const renderMessageContent = (message: ChatMessage) => {
     return Match.value(message.event).pipe(
       Match.when(Schema.is(SdkUserMessageSchema), (msg) => {
-        console.log('ChatSidebar USER MESSAGE', msg)
         const isToolResult = isToolResultMessage(message)
         const label = isToolResult ? 'Tool Result' : 'You'
         const alignment = isToolResult ? 'text-left' : 'text-right'
@@ -441,12 +491,11 @@ export function ChatSidebar({ task }: ChatSidebarProps) {
     <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 select-text">
       <div className="px-2 py-1.5 border-b border-gray-200 dark:border-gray-700">
         <h2 className="font-bold text-sm">Chat</h2>
-        <p className="text-xs text-gray-500">{task.name}</p>
         <p className="text-xs text-gray-400">
           {task.chatMessages.length} message{task.chatMessages.length !== 1 ? 's' : ''}
         </p>
       </div>
-      <div className="flex-1 px-2 py-1 space-y-1.5 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 px-2 py-1 space-y-1.5 overflow-y-auto">
         {task.chatMessages.length === 0 ? (
           <div className="text-center text-gray-500 py-4">
             <p className="text-xs">No messages yet</p>

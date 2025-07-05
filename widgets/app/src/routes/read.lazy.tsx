@@ -39,7 +39,7 @@ function ReadPage() {
 
   return (
     <div className="w-full h-full bg-white dark:bg-[#0a0a0a] flex flex-col">
-      <div className="flex-shrink-0 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-1 flex items-center gap-x-2">
+      <div className="flex-shrink-0 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-1 pl-36 pt-3 flex items-center gap-x-2">
         <Button variant="ghost" size="icon" onClick={goBack} disabled={!canGoBack}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
