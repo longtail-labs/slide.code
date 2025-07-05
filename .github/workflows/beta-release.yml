@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - june-29
-      - master
   # Allow manual triggering
   workflow_dispatch:
 
