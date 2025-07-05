@@ -241,8 +241,52 @@ export const makeGitRepo = (
     const gitDiffIncludingUntracked = () =>
       Effect.tryPromise({
         try: async () => {
-          // Get the normal diff for tracked files
-          const trackedDiff = await workingGit.diff()
+          // This function provides a complete view of all changes in the working directory
+          // compared to the last commit (HEAD), including:
+          // 1. Staged changes (index -> HEAD)
+          // 2. Unstaged changes (working tree -> index)
+          // 3. Untracked files (shown as additions)
+          // This is perfect for task diff viewers where users want to see everything that's changed
+          // Check if repository has any commits first
+          let repoHasCommits = false
+          try {
+            const log = await workingGit.log()
+            repoHasCommits = log.all.length > 0
+          } catch {
+            // If log fails, likely means no commits exist
+            repoHasCommits = false
+          }
+
+          let completeDiff = ''
+
+          if (repoHasCommits) {
+            // Get complete diff (both staged and unstaged changes) compared to HEAD
+            // This includes all changes since the last commit
+            completeDiff = await workingGit.diff(['HEAD'])
+          } else {
+            // If no commits exist, show all tracked files as additions
+            const status = await workingGit.status()
+            const trackedFiles = [
+              ...(status.modified || []),
+              ...(status.created || []),
+              ...(status.staged || [])
+            ]
+
+            if (trackedFiles.length > 0) {
+              // For each tracked file, create a diff showing it as completely new
+              const trackedDiffs = await Promise.all(
+                trackedFiles.map(async (file) => {
+                  try {
+                    const diff = await workingGit.diff(['--no-index', '/dev/null', file])
+                    return diff
+                  } catch {
+                    return ''
+                  }
+                })
+              )
+              completeDiff = trackedDiffs.filter(Boolean).join('\n')
+            }
+          }
 
           // Get status to find untracked files
           const status = await workingGit.status()
@@ -261,8 +305,8 @@ export const makeGitRepo = (
             })
           )
 
-          // Combine all diffs into one string
-          return [trackedDiff, ...untrackedDiffs].filter(Boolean).join('\n')
+          // Combine complete diff with untracked diffs
+          return [completeDiff, ...untrackedDiffs].filter(Boolean).join('\n')
         },
         catch: (error) => new GitRepoError(`Failed to get complete diff: ${error}`)
       })
