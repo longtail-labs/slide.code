@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Paperclip, Send, MessageSquare, Square, Loader2 } from 'lucide-react'
-import type { TaskWithMessages } from '@slide.code/schema'
+import type { TaskWithMessages, ClaudeModelId } from '@slide.code/schema'
+import { DEFAULT_MODEL } from '@slide.code/schema'
 import { useContinueTask, useStopTask, useProject } from '@slide.code/clients'
 import { useWorkingScreenContext } from '../WorkingScreen'
+import { ModelPicker } from '@/components/ModelPicker'
 
 interface PromptBoxProps {
   task: TaskWithMessages
@@ -12,6 +15,7 @@ interface PromptBoxProps {
 
 export function PromptBox({ task }: PromptBoxProps) {
   const [prompt, setPrompt] = useState('')
+  const [selectedModel, setSelectedModel] = useState<ClaudeModelId>(DEFAULT_MODEL)
   const continueTask = useContinueTask()
   const stopTask = useStopTask()
   const { commentsCount } = useWorkingScreenContext()
@@ -25,7 +29,23 @@ export function PromptBox({ task }: PromptBoxProps) {
 
     continueTask.mutate({
       taskId: task.id,
-      prompt: prompt.trim()
+      prompt: prompt.trim(),
+      model: selectedModel,
+      permissionMode: 'bypassPermissions'
+    })
+
+    // Clear the prompt after sending
+    setPrompt('')
+  }
+
+  const handlePlan = () => {
+    if (!prompt.trim()) return
+
+    continueTask.mutate({
+      taskId: task.id,
+      prompt: prompt.trim(),
+      model: selectedModel,
+      permissionMode: 'plan'
     })
 
     // Clear the prompt after sending
@@ -57,6 +77,18 @@ export function PromptBox({ task }: PromptBoxProps) {
         </div>
       )}
 
+      {/* Model picker - only show when task is not running */}
+      {!isTaskRunning && (
+        <div className="mb-2 flex justify-end">
+          <ModelPicker
+            value={selectedModel}
+            onValueChange={setSelectedModel}
+            disabled={continueTask.isPending}
+            className="bg-background shadow-sm"
+          />
+        </div>
+      )}
+
       <div className="relative">
         <Textarea
           value={prompt}
@@ -71,6 +103,17 @@ export function PromptBox({ task }: PromptBoxProps) {
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
             <Paperclip className="w-4 h-4" />
           </Button>
+          {!isTaskRunning && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              disabled={!prompt.trim() || continueTask.isPending}
+              onClick={handlePlan}
+            >
+              Plan
+            </Button>
+          )}
           {isTaskRunning ? (
             <Button
               variant="outline"

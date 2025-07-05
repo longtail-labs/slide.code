@@ -289,9 +289,32 @@ export const useStartTask = () => {
   const queryClient = useQueryClient()
   const { runRpcProgram } = useRpc()
 
-  return useMutation<string, Error, { projectId: string; prompt: string; useWorktree?: boolean }>({
-    mutationFn: async (taskData: { projectId: string; prompt: string; useWorktree?: boolean }) => {
-      console.log('[TASK-HELPERS] 🚀 Starting task:', taskData.prompt)
+  return useMutation<
+    string,
+    Error,
+    {
+      projectId: string
+      prompt: string
+      useWorktree?: boolean
+      model?: string
+      permissionMode?: string
+    }
+  >({
+    mutationFn: async (taskData: {
+      projectId: string
+      prompt: string
+      useWorktree?: boolean
+      model?: string
+      permissionMode?: string
+    }) => {
+      console.log(
+        '[TASK-HELPERS] 🚀 Starting task:',
+        taskData.prompt,
+        'with model:',
+        taskData.model,
+        'with permissionMode:',
+        taskData.permissionMode
+      )
       const taskId = await runRpcProgram((client) => {
         return client.StartTask(taskData)
       })
@@ -316,13 +339,27 @@ export const useContinueTask = () => {
   const queryClient = useQueryClient()
   const { runRpcProgram } = useRpc()
 
-  return useMutation<boolean, Error, { taskId: string; prompt: string; sessionId?: string }>({
-    mutationFn: async (continueData: { taskId: string; prompt: string; sessionId?: string }) => {
+  return useMutation<
+    boolean,
+    Error,
+    { taskId: string; prompt: string; sessionId?: string; model?: string; permissionMode?: string }
+  >({
+    mutationFn: async (continueData: {
+      taskId: string
+      prompt: string
+      sessionId?: string
+      model?: string
+      permissionMode?: string
+    }) => {
       console.log(
         '[TASK-HELPERS] ▶️ Continuing task:',
         continueData.taskId,
         'with prompt:',
-        continueData.prompt
+        continueData.prompt,
+        'with model:',
+        continueData.model,
+        'with permissionMode:',
+        continueData.permissionMode
       )
       const success = await runRpcProgram((client) => {
         return client.ContinueTask(continueData)

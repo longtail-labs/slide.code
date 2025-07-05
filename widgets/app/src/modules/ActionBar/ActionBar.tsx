@@ -1,8 +1,14 @@
 import React, { useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import ActionBarPresenter from './ActionBarPresenter'
-import { useStartTask, useProjects, useAddProject, useCreateProject, useSelectProjectDirectory } from '@slide.code/clients'
-import type { Project } from '@slide.code/schema'
+import {
+  useStartTask,
+  useProjects,
+  useAddProject,
+  useCreateProject,
+  useSelectProjectDirectory
+} from '@slide.code/clients'
+import type { Project, ClaudeModelId } from '@slide.code/schema'
 
 const ActionBar = () => {
   const navigate = useNavigate()
@@ -16,13 +22,17 @@ const ActionBar = () => {
     prompt: string
     projectId: string
     useWorktree?: boolean
+    model?: ClaudeModelId
+    permissionMode?: string
   }) => {
     console.log('handlePlay called with:', details)
 
     const taskData = {
       prompt: details.prompt,
       projectId: details.projectId,
-      useWorktree: details.useWorktree
+      useWorktree: details.useWorktree,
+      model: details.model,
+      permissionMode: details.permissionMode
     }
 
     startTaskMutation.mutate(taskData, {
@@ -73,7 +83,7 @@ const ActionBar = () => {
     try {
       console.log('Opening directory selection dialog...')
       const selectedPath = await selectDirectoryMutation.mutateAsync()
-      
+
       if (!selectedPath) {
         console.log('Directory selection cancelled')
         return null

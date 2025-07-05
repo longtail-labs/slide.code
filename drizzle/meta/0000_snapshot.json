@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e60a6006-9377-404d-b5e5-10f528812748",
+  "id": "3454d840-e1ec-4d7f-a8bf-4b390e90b613",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "chat_messages": {
@@ -161,14 +161,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "permission_mode": {
-          "name": "permission_mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'bypassPermissions'"
-        },
         "status": {
           "name": "status",
           "type": "text",
@@ -186,13 +178,6 @@
         },
         "stats": {
           "name": "stats",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "model": {
-          "name": "model",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

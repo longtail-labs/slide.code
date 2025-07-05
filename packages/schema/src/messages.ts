@@ -43,6 +43,8 @@ export const Payloads = {
   [MessageTypes.TASK_START]: Schema.Struct({
     _tag: Schema.Literal(MessageTypes.TASK_START),
     taskId: Schema.String,
+    model: Schema.optional(Schema.String),
+    permissionMode: Schema.optional(Schema.String),
     timestamp: Schema.Number
   }).annotations({
     parseOptions: {
@@ -56,6 +58,8 @@ export const Payloads = {
     taskId: Schema.String,
     prompt: Schema.String,
     sessionId: Schema.optional(Schema.String),
+    model: Schema.optional(Schema.String),
+    permissionMode: Schema.optional(Schema.String),
     timestamp: Schema.Number
   }),
 
@@ -156,17 +160,27 @@ export const createAppReady = (error?: boolean, errorMessage?: string) =>
     ...(errorMessage && { errorDetails: errorMessage })
   })
 
-export const createTaskStart = (taskId: string) =>
+export const createTaskStart = (taskId: string, model?: string, permissionMode?: string) =>
   createMessage(MessageTypes.TASK_START, {
     taskId,
+    model,
+    permissionMode,
     timestamp: Date.now()
   })
 
-export const createTaskContinue = (taskId: string, prompt: string, sessionId?: string) =>
+export const createTaskContinue = (
+  taskId: string,
+  prompt: string,
+  sessionId?: string,
+  model?: string,
+  permissionMode?: string
+) =>
   createMessage(MessageTypes.TASK_CONTINUE, {
     taskId,
     prompt,
     sessionId,
+    model,
+    permissionMode,
     timestamp: Date.now()
   })
 

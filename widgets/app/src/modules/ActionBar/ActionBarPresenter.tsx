@@ -28,8 +28,10 @@ import {
   IconPhoto,
   IconGitBranch
 } from '@tabler/icons-react'
-import type { Project } from '@slide.code/schema'
+import type { Project, ClaudeModelId } from '@slide.code/schema'
+import { DEFAULT_MODEL } from '@slide.code/schema'
 import { useSelectedProjectStore } from '../../stores/selectedProjectStore'
+import { ModelPicker } from '@/components/ModelPicker'
 
 export interface Suggestion {
   icon: string
@@ -37,7 +39,13 @@ export interface Suggestion {
 }
 
 export interface ActionBarProps {
-  onPlay: (details: { prompt: string; projectId: string; useWorktree?: boolean }) => void
+  onPlay: (details: {
+    prompt: string
+    projectId: string
+    useWorktree?: boolean
+    model?: ClaudeModelId
+    permissionMode?: string
+  }) => void
   onSuggestionClick?: (suggestion: Suggestion) => void
   onCreateProject: (projectName: string) => Promise<Project>
   onSelectExistingProject?: () => Promise<string | null>
@@ -64,6 +72,7 @@ const ActionBarPresenter = ({
   const [isNewProjectDialogOpen, setIsNewProjectDialogOpen] = useState(false)
   const [newWorktreeBranch, setNewWorktreeBranch] = useState(false)
   const [createProjectError, setCreateProjectError] = useState<string | null>(null)
+  const [selectedModel, setSelectedModel] = useState<ClaudeModelId>(DEFAULT_MODEL)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Set default project when projects load
@@ -103,7 +112,23 @@ const ActionBarPresenter = ({
       onPlay({
         prompt,
         projectId: selectedProjectId,
-        useWorktree: newWorktreeBranch
+        useWorktree: newWorktreeBranch,
+        model: selectedModel,
+        permissionMode: 'bypassPermissions'
+      })
+    }
+  }
+
+  const handlePlan = () => {
+    if (value.trim() && selectedProjectId) {
+      const prompt = value.trim()
+
+      onPlay({
+        prompt,
+        projectId: selectedProjectId,
+        useWorktree: newWorktreeBranch,
+        model: selectedModel,
+        permissionMode: 'plan'
       })
     }
   }
@@ -218,6 +243,14 @@ const ActionBarPresenter = ({
             </SelectContent>
           </Select>
 
+          {/* Model Picker */}
+          <ModelPicker
+            value={selectedModel}
+            onValueChange={setSelectedModel}
+            disabled={isLoading}
+            className="border-gray-200 hover:bg-gray-50"
+          />
+
           {/* Attach Images Button - Commented out for now */}
           {/*
           <Button
@@ -269,6 +302,15 @@ const ActionBarPresenter = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            disabled={!value || isLoading}
+            onClick={handlePlan}
+          >
+            Plan
+          </Button>
           <Button
             size="sm"
             className="h-8 w-8 rounded-full p-0 bg-black hover:bg-gray-800"

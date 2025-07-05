@@ -8,7 +8,7 @@ import {
   TaskStopMessage,
   createInvalidateQuery
 } from '@slide.code/schema/messages'
-import { TaskQueryKeys } from '@slide.code/schema'
+import { TaskQueryKeys, DEFAULT_MODEL } from '@slide.code/schema'
 import {
   ClaudeCodeAgentTag,
   makeClaudeCodeAgent,
@@ -58,6 +58,9 @@ const make = Effect.gen(function* () {
           const continuePrompt = isContinueMessage
             ? (taskMessage as TaskContinueMessage).prompt
             : undefined
+          const messageModel = (taskMessage as TaskStartMessage | TaskContinueMessage).model
+          const messagePermissionMode = (taskMessage as TaskStartMessage | TaskContinueMessage)
+            .permissionMode
 
           // Handle TASK_STOP messages
           if (isStopMessage) {
@@ -200,8 +203,13 @@ const make = Effect.gen(function* () {
                       const agent = yield* makeClaudeCodeAgent({
                         workingDirectory: project.path,
                         maxTurns: 50,
-                        permissionMode: 'bypassPermissions',
-                        model: 'claude-sonnet-4-20250514',
+                        permissionMode:
+                          (messagePermissionMode as
+                            | 'default'
+                            | 'bypassPermissions'
+                            | 'acceptEdits'
+                            | 'plan') || 'bypassPermissions',
+                        model: messageModel || DEFAULT_MODEL,
                         pathToClaudeCodeExecutable: claudeExecutablePath
                       })
 
@@ -297,8 +305,10 @@ const make = Effect.gen(function* () {
                         event: {
                           type: 'prompt',
                           timestamp: Date.now(),
-                          content: prompt
-                        } as any,
+                          content: prompt,
+                          model: messageModel || DEFAULT_MODEL,
+                          permissionMode: messagePermissionMode || 'bypassPermissions'
+                        },
                         sessionId: finalSessionId || null // Use the session ID if continuing
                       })
 

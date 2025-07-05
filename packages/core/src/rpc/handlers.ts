@@ -525,11 +525,13 @@ export const SlideLive = SlideRpcs.toLayer(
       },
 
       // Task operations
-      StartTask: ({ projectId, prompt, useWorktree }) => {
+      StartTask: ({ projectId, prompt, useWorktree, model, permissionMode }) => {
         console.log('[RPC-HANDLER] 🔧 StartTask called with:', {
           projectId,
           prompt,
-          useWorktree
+          useWorktree,
+          model,
+          permissionMode
         })
         return Effect.gen(function* () {
           // First, get the project from the database to get its path
@@ -554,8 +556,8 @@ export const SlideLive = SlideRpcs.toLayer(
           const createdTask = yield* dbService.createTask(taskData)
           console.log('[RPC-HANDLER] 🔧 Task created in database:', createdTask.id)
 
-          // Publish TASK_START message for subscribers to handle
-          const taskStartMessage = createTaskStart(createdTask.id)
+          // Publish TASK_START message with model and permissionMode for subscribers to handle
+          const taskStartMessage = createTaskStart(createdTask.id, model, permissionMode)
           yield* pubsubClient.publish(taskStartMessage)
           console.log('[RPC-HANDLER] 🔧 Published TASK_START message for task:', createdTask.id)
 
@@ -570,15 +572,23 @@ export const SlideLive = SlideRpcs.toLayer(
       },
 
       // Continue an existing task
-      ContinueTask: ({ taskId, prompt, sessionId }) => {
+      ContinueTask: ({ taskId, prompt, sessionId, model, permissionMode }) => {
         console.log('[RPC-HANDLER] 🔄 ContinueTask called with:', {
           taskId,
           prompt,
-          sessionId
+          sessionId,
+          model,
+          permissionMode
         })
         return Effect.gen(function* () {
-          // Publish TASK_CONTINUE message for subscribers to handle
-          const taskContinueMessage = createTaskContinue(taskId, prompt, sessionId)
+          // Publish TASK_CONTINUE message with model and permissionMode for subscribers to handle
+          const taskContinueMessage = createTaskContinue(
+            taskId,
+            prompt,
+            sessionId,
+            model,
+            permissionMode
+          )
           yield* pubsubClient.publish(taskContinueMessage)
           console.log('[RPC-HANDLER] 🔄 Published TASK_CONTINUE message for task:', taskId)
 

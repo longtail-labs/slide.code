@@ -7,6 +7,7 @@ export * from './queryKeys.js'
 export * from './state.js'
 export * from './requests.js'
 export * from './client.js'
+export * from './models.js'
 
 // Drizzle table definitions and relations
 import {

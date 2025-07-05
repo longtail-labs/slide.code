@@ -173,7 +173,9 @@ export class SlideRpcs extends RpcGroup.make(
     payload: {
       projectId: Schema.String,
       prompt: Schema.String,
-      useWorktree: Schema.optional(Schema.Boolean)
+      useWorktree: Schema.optional(Schema.Boolean),
+      model: Schema.optional(Schema.String),
+      permissionMode: Schema.optional(Schema.String)
     }
   }),
   Rpc.make('ContinueTask', {
@@ -182,7 +184,9 @@ export class SlideRpcs extends RpcGroup.make(
     payload: {
       taskId: Schema.String,
       prompt: Schema.String,
-      sessionId: Schema.optional(Schema.String)
+      sessionId: Schema.optional(Schema.String),
+      model: Schema.optional(Schema.String),
+      permissionMode: Schema.optional(Schema.String)
     }
   }),
   Rpc.make('GetTaskDiff', {

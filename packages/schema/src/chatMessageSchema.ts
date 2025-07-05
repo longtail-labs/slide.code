@@ -55,6 +55,8 @@ export const PromptUserMessageSchema = Schema.Struct({
   type: Schema.Literal('prompt'),
   content: Schema.String,
   timestamp: Schema.Number,
+  model: Schema.optional(Schema.String),
+  permissionMode: Schema.optional(Schema.String),
   fileComments: Schema.optional(Schema.Array(FileCommentSchema))
 })
 

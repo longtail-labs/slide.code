@@ -1,12 +1,7 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 import { relations } from 'drizzle-orm'
 import type { ChatMessageEvent } from './chatMessageSchema.js'
-import {
-  messageSubtypes,
-  taskStatuses,
-  permissionModes,
-  messageTypes
-} from './chatMessageSchema.js'
+import { messageSubtypes, taskStatuses, messageTypes } from './chatMessageSchema.js'
 import { v4 as uuidv4 } from 'uuid'
 
 export const projects = sqliteTable('projects', {
@@ -38,18 +33,12 @@ export const tasks = sqliteTable('tasks', {
     .references(() => projects.id, { onDelete: 'cascade' }),
   useWorktree: integer('use_worktree', { mode: 'boolean' }).default(false),
   worktreeName: text('worktree_name'),
-  permissionMode: text('permission_mode', {
-    enum: permissionModes
-  })
-    .default('bypassPermissions')
-    .notNull(),
   status: text('status', { enum: taskStatuses }).default('pending').notNull(),
   branch: text('branch'),
   stats: text('stats', { mode: 'json' }).$type<{
     additions: number
     deletions: number
   }>(),
-  model: text('model'),
   needsReview: integer('needs_review', { mode: 'boolean' }).default(true),
   archived: integer('archived', { mode: 'boolean' }).default(false),
   createdAt: text('created_at')
