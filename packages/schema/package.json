@@ -1,0 +1,63 @@
+{
+  "name": "@slide.code/schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "require": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./messages": {
+      "types": "./src/messages.ts",
+      "import": "./src/messages.ts",
+      "require": "./src/messages.ts",
+      "default": "./src/messages.ts"
+    },
+    "./state": {
+      "types": "./src/state.ts",
+      "import": "./src/state.ts",
+      "require": "./src/state.ts",
+      "default": "./src/state.ts"
+    },
+    "./requests": {
+      "types": "./src/requests.ts",
+      "import": "./src/requests.ts",
+      "require": "./src/requests.ts",
+      "default": "./src/requests.ts"
+    },
+    "./database": {
+      "types": "./src/database.ts",
+      "import": "./src/database.ts",
+      "require": "./src/database.ts",
+      "default": "./src/database.ts"
+    },
+    "./collections": {
+      "types": "./src/collections.ts",
+      "import": "./src/collections.ts",
+      "require": "./src/collections.ts",
+      "default": "./src/collections.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint --fix",
+    "watch": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "format": "npx prettier --check \"**/*.{js,mjs,cjs,ts,mts,cts,vue,json}\""
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.55.1",
+    "@signaldb/core": "^1.6.0",
+    "@signaldb/fs": "^1.0.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^10.0.0"
+  }
+}

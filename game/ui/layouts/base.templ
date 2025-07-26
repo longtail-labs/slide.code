@@ -1,0 +1,86 @@
+package layouts
+
+import "server/ui/components/navbar"
+
+templ BaseLayout() {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>hitSlop: The Game - Multiplayer Game</title>
+			<!-- Tailwind CSS (output) -->
+			<link href="/assets/css/output.css" rel="stylesheet"/>
+			<!-- Datastar -->
+			<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-beta.11/bundles/datastar.js"></script>
+		</head>
+		<body class="h-full bg-slate-50 text-slate-900 antialiased">
+			@navbar.Navbar()
+			<main class="h-full">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+templ GameLayout() {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>hitSlop: The Game - A Massive Multiplayer Game</title>
+			<!-- Tailwind CSS (output) -->
+			<link href="/assets/css/output.css" rel="stylesheet"/>
+			<!-- Alpine.js -->
+			// <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+			<!-- Datastar -->
+			// <script type="module" defer src="/assets/js/datastar.js"></script>
+			<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-beta.11/bundles/datastar.js"></script>
+
+		</head>
+		<body class="game-body h-full bg-slate-100 text-slate-900 antialiased">
+			// Electron Event Listener Script
+			// Comment out the Electron event listener script for now
+			/*
+			<!--
+			<script>
+				console.log('🎮 BitSplat: Setting up Electron event listeners...');
+				
+				// Listen for custom events from Electron preload script  
+				window.addEventListener('electron-host-message', function(event) {
+					console.log('🔗 Electron Host Message Received:', event.detail);
+					console.log('📦 Message Type:', typeof event.detail);
+					console.log('📄 Full Event:', event);
+				});
+				
+				// Check if electronAPI is available (from preload script)
+				if (typeof window.electronAPI !== 'undefined') {
+					console.log('✅ ElectronAPI detected and available');
+					
+					// Test the onHostMessage callback method
+					window.electronAPI.onHostMessage(function(message) {
+						console.log('📨 ElectronAPI onHostMessage callback:', message);
+					});
+				} else {
+					console.log('ℹ️ ElectronAPI not available (running standalone)');
+				}
+				
+				// For manual testing - expose a function to send messages to Electron
+				window.testElectronMessage = function(message) {
+					if (typeof window.electronAPI !== 'undefined') {
+						console.log('📤 Sending test message to Electron:', message);
+						window.electronAPI.sendToHost(message);
+					} else {
+						console.log('❌ ElectronAPI not available - cannot send message');
+					}
+				};
+				
+				console.log('🎮 BitSplat: Electron setup complete');
+			</script>
+			*/
+			-->
+			{ children... }
+		</body>
+	</html>
+} 

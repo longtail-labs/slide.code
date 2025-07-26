@@ -1,0 +1,323 @@
+package pages
+
+import (
+	"fmt"
+	"server/types"
+	"server/ui/layouts"
+	"sort"
+	"strings"
+	"time"
+)
+
+func teamBgClass(teamID string) string {
+	if teamID == "" || teamID == "neutral" {
+		return "team-bg-neutral"
+	}
+	return "team-bg-" + teamID
+}
+
+func teamTextClass(teamID string) string {
+	if teamID == "" || teamID == "neutral" {
+		return "" // No special text color for neutral
+	}
+	return "team-text-" + teamID
+}
+
+// SortTeams sorts teams by score in descending order, then by name alphabetically.
+func SortTeams(teamMap map[string]*types.Team) []*types.Team {
+	var teams []*types.Team
+	for _, team := range teamMap {
+		teams = append(teams, team)
+	}
+	sort.Slice(teams, func(i, j int) bool {
+		if teams[i].Score != teams[j].Score {
+			return teams[i].Score > teams[j].Score
+		}
+		return strings.Compare(teams[i].ID, teams[j].ID) < 0
+	})
+	return teams
+}
+
+func FormatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	m := d / time.Minute
+	s := (d % time.Minute) / time.Second
+	return fmt.Sprintf("%02d:%02d", m, s)
+}
+
+// CellComponent renders a single cell with unique ID for fragment updates
+templ CellComponent(x, y int, cell types.Cell) {
+	<div
+		id={ fmt.Sprintf("cell-%d-%d", x, y) }
+		class={
+			"game-grid-cell",
+			teamBgClass(cell.OwnerID),
+		}
+		data-x={ fmt.Sprintf("%d", x) }
+		data-y={ fmt.Sprintf("%d", y) }
+	></div>
+}
+
+templ GamePage(player *types.Player, gameState *types.GameState) {
+	@layouts.GameLayout() {
+		<div
+			class="game-page"
+			data-on-load={ fmt.Sprintf("@get('/api/sse?playerId=%s')", player.ID) }
+			data-signals={ fmt.Sprintf(`{ "playerId": "%s", "bits": %d, "roundState": "%s", "roundTime": %d, "countdown": %d, "gameState": {} }`, player.ID, player.Bits, gameState.RoundState, int(gameState.RoundTimeRemaining.Seconds()), int(gameState.Countdown.Seconds())) }
+		>
+			<div id="game-container" class="game-container">
+				@GridComponent(gameState)
+			</div>
+			<div id="side-panel" class="side-panel">
+				@RoundStatusComponent(gameState)
+				@PlayerHUD(player, gameState.Teams[player.TeamID])
+				@LeaderboardComponent(gameState)
+			</div>
+		</div>
+
+		// --- Bot Scripting Engine ---
+		// Comment out the bot scripting engine for now
+		/*
+		<!--
+		<script>
+      document.addEventListener('DOMContentLoaded', () => {
+        (() => {
+          // 1. Minimal Game SDK for the Bot
+          const game = {
+            _state: {}, // Initialize with empty state, will be populated by events
+            _listeners: new Map(),
+
+            // Expose a safe, read-only copy of the state
+            getState: () => JSON.parse(JSON.stringify(game._state)),
+
+            // Abstraction to perform the 'place bit' action
+            place: (x, y) => {
+              console.log(`🤖 Bot action: place at (${x}, ${y})`);
+              const state = game.getState(); // Use the SDK's own state
+              console.log(`🤖 Current player state: bits=${state.player?.bits}, roundState=${state.roundState}`);
+              if (state.player && state.player.bits > 0 && state.roundState === 'In Progress') {
+                // Extract userId from URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const userId = urlParams.get('userId');
+                
+                // Include userId in the action request
+                const actionUrl = userId 
+                  ? `/action?x=${x}&y=${y}&userId=${encodeURIComponent(userId)}`
+                  : `/action?x=${x}&y=${y}`;
+                
+                // Use the standard 'fetch' API to make the POST request
+                fetch(actionUrl, {
+                  method: 'POST',
+                }).then(response => {
+                  if (!response.ok) {
+                    // Log more detailed error information
+                    return response.text().then(errorText => {
+                      console.error(`🤖 Action failed: ${response.status} ${response.statusText} - ${errorText}`);
+                      console.error(`🤖 Player state: bits=${state.player.bits}, roundState=${state.roundState}`);
+                    });
+                  }
+                  console.log(`🤖 Action successful: placed bit at (${x}, ${y})`);
+                }).catch(err => console.error('🤖 Network error:', err));
+              } else {
+                console.log('🤖 Bot action skipped: conditions not met.');
+              }
+            },
+
+            // Allow the bot to listen for game state updates
+            on: (eventName, callback) => {
+              if (!game._listeners.has(eventName)) {
+                game._listeners.set(eventName, []);
+              }
+              game._listeners.get(eventName).push(callback);
+            },
+
+            // Internal function to trigger events
+            _emit: (eventName, data) => {
+              if (game._listeners.has(eventName)) {
+                game._listeners.get(eventName).forEach(cb => {
+                  try {
+                    cb(data);
+                  } catch (e) {
+                    console.error('🤖 Bot script error:', e);
+                  }
+                });
+              }
+            }
+          };
+
+          // Hook into the game state updates from the server
+          window.addEventListener('game:state:updated', (event) => {
+            // console.log('🤖 Received game:state:updated event:', event.detail);
+            const newState = event.detail;
+            if (newState && Object.keys(newState).length > 0) {
+              game._state = newState;
+              game._emit('update', game.getState());
+            }
+          });
+
+          // 2. Sandboxed Script Runner
+          function runSandboxedScript(code, sdk) {
+            console.log("🚀 Preparing to run user script in a sandbox.");
+            try {
+              // Create a sandboxed function. It can only see the variables we pass it.
+              const sandboxedFunction = new Function('on', 'place', 'getState', code);
+
+              // Execute the script, providing the sandboxed API.
+              sandboxedFunction(sdk.on, sdk.place, sdk.getState);
+              console.log("✅ User script has been successfully sandboxed and executed.");
+
+              // --- Electron Integration ---
+              if (window.electronAPI && typeof window.electronAPI.sendToHost === 'function') {
+                console.log('🔌 Electron API detected. Sending script-loaded event.');
+                window.electronAPI.sendToHost({
+                  event: 'bot-script-loaded',
+                  status: 'success',
+                  timestamp: Date.now(),
+                });
+              }
+
+            } catch (e) {
+              console.error("☠️ Error executing sandboxed script:", e);
+              // Also notify Electron if it fails
+              if (window.electronAPI && typeof window.electronAPI.sendToHost === 'function') {
+                console.log('🔌 Electron API detected. Sending script-error event.');
+                window.electronAPI.sendToHost({
+                  event: 'bot-script-loaded',
+                  status: 'error',
+                  error: e.message,
+                  timestamp: Date.now(),
+                });
+              }
+            }
+          }
+
+          // 3. Listen for script-loading messages from the Electron host
+          window.addEventListener('electron-host-message', (event) => {
+            const message = event.detail;
+            console.log('🤖 Received message from Electron host:', message);
+
+            if (message && message.type === 'load-script' && message.script) {
+              console.log('🤖 Received new script from host. Reloading bot.');
+              // Clear any old listeners from previous scripts
+              game._listeners.clear();
+              runSandboxedScript(message.script, game);
+            }
+          });
+
+          // Expose the SDK to the window for debugging
+          window.gameSDK = game;
+          console.log("🤖 Bot scripting engine initialized. Use `window.gameSDK` to inspect. Waiting for script from host.");
+        })();
+      });
+    </script>
+		*/
+		-->
+	}
+}
+
+templ RoundStatusComponent(gameState *types.GameState) {
+	<div id="round-status" class="round-status">
+		if gameState.RoundState == types.InProgress {
+			<div class="round-status-time">
+				<span class="round-status-label">Time Left:</span>
+				<span class="round-status-countdown" data-text="`${Math.floor($roundTime / 60).toString().padStart(2, '0')}:${($roundTime % 60).toString().padStart(2, '0')}`">
+					{ FormatDuration(gameState.RoundTimeRemaining) }
+				</span>
+			</div>
+		}
+		if gameState.RoundState == types.Waiting {
+			<div class="round-status-time">
+				<span class="round-status-label">New round starts in:</span>
+				<span class="round-status-waiting" data-text="$countdown">{ fmt.Sprintf("%d", int(gameState.Countdown.Seconds())) }</span>s
+			</div>
+		}
+		if gameState.RoundState == types.Finished {
+			<div class="round-status-time">
+				if gameState.Winner != nil {
+					<span class="round-status-label">🎉 Winner:</span>
+					<span class={ "winner-text", teamTextClass(gameState.Winner.ID) }>{ gameState.Winner.ID }</span>
+				} else {
+					<span class="round-status-label">Round Over! It's a draw!</span>
+				}
+				<div class="next-round-text">
+					Next round in <span class="round-status-waiting" data-text="$countdown">{ fmt.Sprintf("%d", int(gameState.Countdown.Seconds())) }</span>s
+				</div>
+			</div>
+		}
+	</div>
+}
+
+templ GridComponent(gameState *types.GameState) {
+	<div
+		id="game-grid"
+		class="game-grid"
+		style={ fmt.Sprintf("grid-template-columns: repeat(%d, 1fr); grid-template-rows: repeat(%d, 1fr); width: min(70vw, 70vh * %d / %d); height: min(70vh, 70vw * %d / %d);", types.GridWidth, types.GridHeight, types.GridWidth, types.GridHeight, types.GridHeight, types.GridWidth) }
+		data-on-click={ fmt.Sprintf(`(evt.target.dataset.x && evt.target.dataset.y && $bits > 0 && $roundState === '%s') && @post('/action?x=' + evt.target.dataset.x + '&y=' + evt.target.dataset.y + '&userId=' + (new URLSearchParams(window.location.search).get('userId') || ''))`, types.InProgress) }
+	>
+		for y := 0; y < types.GridHeight; y++ {
+			for x := 0; x < types.GridWidth; x++ {
+				@CellComponent(x, y, func() types.Cell {
+					key := fmt.Sprintf("%d:%d", x, y)
+					if cell, ok := gameState.Grid.Load(key); ok {
+						return cell.(types.Cell)
+					}
+					return types.Cell{OwnerID: "neutral", Color: "#f8fafc"}
+				}())
+			}
+		}
+	</div>
+}
+
+templ PlayerHUD(player *types.Player, team *types.Team) {
+	<div id="player-hud" class="player-hud">
+		<h2 class="player-hud-title">Your Stats</h2>
+		<div class="player-info">
+			<div class={ "player-avatar", teamBgClass(player.TeamID) }></div>
+			<div>
+				<span class="player-name">{ player.ID }</span>
+				if team != nil {
+					<span class={ "team-badge", teamBgClass(team.ID) }>{ team.ID }</span>
+				}
+			</div>
+		</div>
+		if team != nil {
+			<p class="team-score">Team Score: <span class="team-score-value">{ fmt.Sprintf("%d", team.Score) }</span></p>
+		}
+		<div class="bits-section">
+			<p class="bits-label">Bits</p>
+			<div class="bits-progress-container">
+				<div
+					class={ "progress-bar-fill", teamBgClass(player.TeamID) }
+					style={ fmt.Sprintf("width: %d%%;", (player.Bits*100)/types.MaxBits) }
+					data-attr-style={ fmt.Sprintf("`width: ${ $bits * 100 / %d }%%;`", types.MaxBits) }
+				></div>
+			</div>
+			<div class="bits-counter">
+				<span data-text={ fmt.Sprintf("`${$bits}/%d`", types.MaxBits) }>{ fmt.Sprintf("%d/%d", player.Bits, types.MaxBits) }</span>
+			</div>
+		</div>
+	</div>
+}
+
+templ LeaderboardComponent(gameState *types.GameState) {
+	<div id="leaderboard" class="leaderboard">
+		<h2 class="leaderboard-title">Leaderboard</h2>
+		<ul class="leaderboard-list">
+			for i, t := range SortTeams(gameState.Teams) {
+				<li class="leaderboard-item">
+					<div class="leaderboard-left">
+						<span class="leaderboard-rank">{ fmt.Sprintf("%d", i+1) }</span>
+						<div class={ "leaderboard-avatar", teamBgClass(t.ID) }></div>
+						<div class="leaderboard-team-info">
+							<span class="leaderboard-team-name">{ t.ID }</span>
+							<div class="leaderboard-team-stats">
+								<span>{ fmt.Sprintf("%d Active, %d Idle", t.ActivePlayers, t.IdlePlayers) }</span>
+							</div>
+						</div>
+					</div>
+					<span class="leaderboard-percentage">{ fmt.Sprintf("%.1f%%", t.Percentage) }</span>
+				</li>
+			}
+		</ul>
+	</div>
+}

@@ -1,0 +1,570 @@
+import { Effect } from 'effect'
+import { v4 as uuidv4 } from 'uuid'
+import { IPCRefService } from '../../services/ipc-ref.service.js'
+import {
+  UserStateSchema,
+  type UserState,
+  type TokenTotals,
+  type DailyUsage,
+  type SessionUsage,
+  type McpServerConfig
+} from '@slide.code/schema'
+import { ElectronStoreUtil } from '../../utils/electron-store.util.js'
+import { CcusageService } from '../../services/ccusage.service.js'
+
+/**
+ * Initial state for the User ref
+ * Generated with default values that will be replaced on initialization
+ */
+export const initialUserState: UserState = {
+  userId: '',
+  installationDate: 0,
+  subscribed: false,
+  lastSubscriptionCheck: 0,
+  claudeCode: {
+    executablePath: null,
+    lastDetected: null,
+    stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null },
+    mcpServers: {
+      context7: {
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp'],
+        enabled: true
+      }
+    }
+  },
+  vibeDirectory: ''
+}
+
+/**
+ * Errors that can be thrown by the User ref
+ */
+export class UserRefError extends Error {
+  readonly _tag = 'UserRefError'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'UserRefError'
+  }
+}
+
+/**
+ * UserRef service for tracking user identity and subscription status
+ */
+export class UserRef extends Effect.Service<UserRef>()('UserRef', {
+  dependencies: [IPCRefService.Default],
+  scoped: Effect.gen(function* () {
+    yield* Effect.logInfo('[UserRef] 👤 Creating UserRef')
+
+    // Get the IPCRefService and create the ref
+    const refService = yield* IPCRefService
+
+    // Check if we already have a user ID in storage
+    const existingUserData = ElectronStoreUtil.get('user-data')
+
+    console.log('[UserRef] existingUserData', existingUserData)
+
+    // Initialize the user state
+    let userState = initialUserState
+
+    if (existingUserData) {
+      try {
+        // Use existing user data directly since claudeCode is now optional
+        yield* Effect.logInfo('[UserRef] Using existing user data')
+        userState = existingUserData as UserState
+
+        // Migrate existing user data to include lastSyncTime if missing
+        if (userState.claudeCode?.stats && !('lastSyncTime' in userState.claudeCode.stats)) {
+          yield* Effect.logInfo(
+            '[UserRef] Migrating existing Claude Code stats to include lastSyncTime'
+          )
+          const currentStats = userState.claudeCode.stats as any
+          userState = {
+            ...userState,
+            claudeCode: {
+              ...userState.claudeCode,
+              stats: {
+                totalRequests: currentStats.totalRequests || 0,
+                totalCost: currentStats.totalCost || 0,
+                lastUsed: currentStats.lastUsed || null,
+                lastSyncTime: null
+              }
+            }
+          }
+        }
+
+        // Migrate existing user data to include MCP servers if missing
+        if (userState.claudeCode && !userState.claudeCode.mcpServers) {
+          yield* Effect.logInfo(
+            '[UserRef] Migrating existing Claude Code config to include MCP servers'
+          )
+          userState = {
+            ...userState,
+            claudeCode: {
+              ...userState.claudeCode,
+              mcpServers: {
+                context7: {
+                  command: 'npx',
+                  args: ['-y', '@upstash/context7-mcp'],
+                  enabled: true
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        yield* Effect.logWarning(`[UserRef] Error loading existing user data: ${error}`)
+        // Will create new user data below
+      }
+    }
+
+    // If no valid user ID exists, create one
+    if (!userState.userId) {
+      const userId = uuidv4()
+      yield* Effect.logInfo('[UserRef] Generating new user ID', { userId })
+      userState = {
+        ...userState,
+        userId,
+        installationDate: Date.now(),
+        lastSubscriptionCheck: Date.now()
+      }
+    }
+
+    // Create the ref with persistence
+    const ref = yield* refService.create('user', userState, UserStateSchema, {
+      persist: true,
+      key: 'user-data'
+    })
+
+    /**
+     * Helper function to ensure Claude Code config has required properties
+     */
+    const ensureClaudeCodeConfig = (existing: any) => ({
+      executablePath: null,
+      lastDetected: null,
+      stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null },
+      mcpServers: {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
+          enabled: true
+        }
+      },
+      ...existing
+    })
+
+    /**
+     * Update subscription status
+     */
+    const updateSubscriptionStatus = (subscribed: boolean) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] updateSubscriptionStatus', subscribed)
+        yield* ref.update((state) => ({
+          ...state,
+          subscribed,
+          lastSubscriptionCheck: Date.now()
+        }))
+        return true
+      })
+
+    /**
+     * Update the vibe directory path
+     */
+    const updateVibeDirectory = (vibeDirectory: string) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] updateVibeDirectory', vibeDirectory)
+        yield* ref.update((state) => ({
+          ...state,
+          vibeDirectory
+        }))
+        return true
+      })
+
+    /**
+     * Update Claude Code executable path
+     */
+    const updateClaudeCodeExecutablePath = (executablePath: string | null) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] updateClaudeCodeExecutablePath', executablePath)
+        yield* ref.update((state) => ({
+          ...state,
+          claudeCode: {
+            ...state.claudeCode,
+            executablePath,
+            lastDetected: executablePath ? Date.now() : null,
+            stats: state.claudeCode?.stats || {
+              totalRequests: 0,
+              totalCost: 0,
+              lastUsed: null,
+              lastSyncTime: null
+            }
+          }
+        }))
+        return true
+      })
+
+    /**
+     * Update Claude Code usage stats
+     */
+    const updateClaudeCodeStats = (stats: { requests?: number; cost?: number }) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] updateClaudeCodeStats', stats)
+        yield* ref.update((state) => {
+          const currentClaudeCode = state.claudeCode || {
+            executablePath: null,
+            lastDetected: null,
+            stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null }
+          }
+
+          return {
+            ...state,
+            claudeCode: {
+              ...currentClaudeCode,
+              stats: {
+                totalRequests: currentClaudeCode.stats.totalRequests + (stats.requests || 0),
+                totalCost: currentClaudeCode.stats.totalCost + (stats.cost || 0),
+                lastUsed: Date.now(),
+                lastSyncTime: currentClaudeCode.stats.lastSyncTime
+              }
+            }
+          }
+        })
+        return true
+      })
+
+    /**
+     * Update MCP server configuration
+     */
+    const updateMcpServers = (mcpServers: Record<string, McpServerConfig>) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] updateMcpServers', mcpServers)
+        yield* ref.update((state) => ({
+          ...state,
+          claudeCode: ensureClaudeCodeConfig({
+            ...state.claudeCode,
+            mcpServers
+          })
+        }))
+        return true
+      })
+
+    /**
+     * Add or update a single MCP server
+     */
+    const addMcpServer = (name: string, config: McpServerConfig) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] addMcpServer', name, config)
+        yield* ref.update((state) => ({
+          ...state,
+          claudeCode: ensureClaudeCodeConfig({
+            ...state.claudeCode,
+            mcpServers: {
+              ...state.claudeCode?.mcpServers,
+              [name]: config
+            }
+          })
+        }))
+        return true
+      })
+
+    /**
+     * Remove an MCP server
+     */
+    const removeMcpServer = (name: string) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] removeMcpServer', name)
+        yield* ref.update((state) => {
+          const mcpServers = { ...state.claudeCode?.mcpServers }
+          delete mcpServers[name]
+          return {
+            ...state,
+            claudeCode: ensureClaudeCodeConfig({
+              ...state.claudeCode,
+              mcpServers
+            })
+          }
+        })
+        return true
+      })
+
+    /**
+     * Toggle MCP server enabled/disabled
+     */
+    const toggleMcpServer = (name: string, enabled: boolean) =>
+      Effect.gen(function* () {
+        console.log('[UserRef] toggleMcpServer', name, enabled)
+        yield* ref.update((state) => {
+          const currentServer = state.claudeCode?.mcpServers?.[name]
+          if (!currentServer) {
+            return state
+          }
+          return {
+            ...state,
+            claudeCode: ensureClaudeCodeConfig({
+              ...state.claudeCode,
+              mcpServers: {
+                ...state.claudeCode?.mcpServers,
+                [name]: {
+                  ...currentServer,
+                  enabled
+                }
+              }
+            })
+          }
+        })
+        return true
+      })
+
+    /**
+     * Get Claude Code configuration
+     */
+    const getClaudeCodeConfig = Effect.gen(function* () {
+      const state = yield* ref.get()
+      return (
+        state.claudeCode || {
+          executablePath: null,
+          lastDetected: null,
+          stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null }
+        }
+      )
+    })
+
+    /**
+     * Get MCP servers configuration
+     */
+    const getMcpServers = Effect.gen(function* () {
+      const state = yield* ref.get()
+      return state.claudeCode?.mcpServers || {}
+    })
+
+    /**
+     * Sync Claude Code usage statistics from ccusage service
+     */
+    const syncClaudeCodeUsageStats = () =>
+      Effect.gen(function* () {
+        console.log('[UserRef] syncClaudeCodeUsageStats')
+        try {
+          const ccusageService = yield* CcusageService
+          const usageStats = yield* ccusageService.loadComprehensiveStats().pipe(
+            Effect.catchAll((error) => {
+              console.log('[UserRef] No usage data available:', error.message)
+              return Effect.succeed({
+                dailyUsage: [],
+                sessionUsage: [],
+                tokenTotals: {
+                  inputTokens: 0,
+                  outputTokens: 0,
+                  cacheCreationTokens: 0,
+                  cacheReadTokens: 0,
+                  totalTokens: 0,
+                  totalCost: 0
+                },
+                modelsUsed: []
+              })
+            })
+          )
+
+          yield* ref.update((state) => ({
+            ...state,
+            claudeCode: {
+              ...(state.claudeCode || {
+                executablePath: null,
+                lastDetected: null,
+                stats: { totalRequests: 0, totalCost: 0, lastUsed: null, lastSyncTime: null }
+              }),
+              stats: {
+                ...state.claudeCode?.stats,
+                totalRequests: state.claudeCode?.stats?.totalRequests || 0,
+                totalCost: usageStats.tokenTotals.totalCost,
+                lastUsed: state.claudeCode?.stats?.lastUsed || null,
+                lastSyncTime: Date.now(),
+                tokenTotals: usageStats.tokenTotals,
+                modelsUsed: usageStats.modelsUsed,
+                // Keep only recent data to avoid bloating the state
+                dailyUsage: usageStats.dailyUsage.slice(-7), // Last 7 days
+                sessionUsage: usageStats.sessionUsage.slice(-5) // Last 5 sessions
+              }
+            }
+          }))
+
+          console.log('[UserRef] ✅ Claude Code usage stats synced successfully')
+          return true
+        } catch (error) {
+          console.error('[UserRef] ❌ Failed to sync Claude Code usage stats:', error)
+          return false
+        }
+      })
+
+    // Register a finalizer for cleanup
+    yield* Effect.addFinalizer(() =>
+      Effect.gen(function* () {
+        yield* Effect.logInfo('[UserRef] 🧹 Cleaning up UserRef')
+        yield* Effect.logInfo('[UserRef] 🧹 UserRef cleaned up successfully')
+      })
+    )
+
+    // Return the service API
+    return {
+      ref,
+      updateSubscriptionStatus,
+      updateVibeDirectory,
+      updateClaudeCodeExecutablePath,
+      updateClaudeCodeStats,
+      updateMcpServers,
+      addMcpServer,
+      removeMcpServer,
+      toggleMcpServer,
+      getClaudeCodeConfig,
+      getMcpServers,
+      syncClaudeCodeUsageStats
+    }
+  })
+}) {}
+
+/**
+ * Live layer for UserRef
+ */
+export const UserRefLive = UserRef.Default
+
+/**
+ * Get the user ref from the service
+ */
+export const getUserRef = Effect.gen(function* () {
+  const userRef = yield* UserRef
+  return userRef.ref
+})
+
+/**
+ * Get the user ID
+ */
+export const getUserId = Effect.gen(function* () {
+  const userRef = yield* UserRef
+  const state = yield* userRef.ref.get()
+  console.log('[DEBUGSTRIPE] getUserId', state)
+  return state.userId
+})
+
+/**
+ * Get the installation date
+ */
+export const getInstallationDate = Effect.gen(function* () {
+  const userRef = yield* UserRef
+  const state = yield* userRef.ref.get()
+  return state.installationDate
+})
+
+/**
+ * Check if the user is subscribed
+ */
+export const isUserSubscribed = Effect.gen(function* () {
+  const userRef = yield* UserRef
+  const state = yield* userRef.ref.get()
+  return state.subscribed
+})
+
+/**
+ * Update subscription status (exposed for direct invocation)
+ */
+export const updateSubscriptionStatus = (subscribed: boolean) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.updateSubscriptionStatus(subscribed)
+  })
+
+/**
+ * Update the vibe directory path (exposed for direct invocation)
+ */
+export const updateVibeDirectory = (vibeDirectory: string) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.updateVibeDirectory(vibeDirectory)
+  })
+
+/**
+ * Update Claude Code executable path (exposed for direct invocation)
+ */
+export const updateClaudeCodeExecutablePath = (executablePath: string | null) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.updateClaudeCodeExecutablePath(executablePath)
+  })
+
+/**
+ * Update Claude Code usage stats (exposed for direct invocation)
+ */
+export const updateClaudeCodeStats = (stats: { requests?: number; cost?: number }) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.updateClaudeCodeStats(stats)
+  })
+
+/**
+ * Update MCP servers configuration (exposed for direct invocation)
+ */
+export const updateMcpServers = (mcpServers: Record<string, McpServerConfig>) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.updateMcpServers(mcpServers)
+  })
+
+/**
+ * Add or update a single MCP server (exposed for direct invocation)
+ */
+export const addMcpServer = (name: string, config: McpServerConfig) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.addMcpServer(name, config)
+  })
+
+/**
+ * Remove an MCP server (exposed for direct invocation)
+ */
+export const removeMcpServer = (name: string) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.removeMcpServer(name)
+  })
+
+/**
+ * Toggle MCP server enabled/disabled (exposed for direct invocation)
+ */
+export const toggleMcpServer = (name: string, enabled: boolean) =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.toggleMcpServer(name, enabled)
+  })
+
+/**
+ * Get Claude Code configuration (exposed for direct invocation)
+ */
+export const getClaudeCodeConfig = () =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.getClaudeCodeConfig
+  })
+
+/**
+ * Get MCP servers configuration (exposed for direct invocation)
+ */
+export const getMcpServers = () =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.getMcpServers
+  })
+
+/**
+ * Get Claude Code executable path
+ */
+export const getClaudeCodeExecutablePath = Effect.gen(function* () {
+  const config = yield* getClaudeCodeConfig()
+  return config.executablePath
+})
+
+/**
+ * Sync Claude Code usage statistics (exposed for direct invocation)
+ */
+export const syncClaudeCodeUsageStats = () =>
+  Effect.gen(function* () {
+    const userRef = yield* UserRef
+    return yield* userRef.syncClaudeCodeUsageStats()
+  })

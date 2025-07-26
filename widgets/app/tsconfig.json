@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ESNext",
+    "sourceMap": false,
+    "moduleResolution": "node", // Changed from 'Bundler'
+    "skipLibCheck": true,
+    "strict": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "esModuleInterop": true, // Added flag
+    "allowSyntheticDefaultImports": true, // Added flag
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/lib/utils/*": ["./src/lib/utils/*"],
+      "@/hooks/*": ["./src/hooks/*"],
+      "@/clients/*": ["./src/clients/*"],
+      "@/routes/*": ["./src/routes/*"],
+      "@/modules/*": ["./src/modules/*"],
+      "@/screens/*": ["./src/screens/*"],
+      "@/objects/*": ["./src/objects/*"]
+    },
+    "lib": ["ES2020", "dom", "dom.iterable"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "types/**/*.d.ts",
+    "../../types/**/*.d.ts",
+    "../../api/src/**/*.ts",
+    "../../database/src/**/*.ts",
+  ],
+  "exclude": ["**/*.spec.ts", "**/*.test.ts"]
+}
