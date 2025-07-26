@@ -8,7 +8,8 @@ import {
   PubSubClient,
   DatabaseService,
   CcusageServiceLive,
-  NotificationService
+  NotificationService,
+  AgentManagerService
 } from './services/index.js'
 
 import { PubSubSubscribers } from './subscribers/index.js'
@@ -54,7 +55,8 @@ const BaseServicesLayer = Layer.mergeAll(
   RefsLayer,
   DatabaseService.Default,
   CcusageServiceLive,
-  NotificationService.Default
+  NotificationService.Default,
+  AgentManagerService.Default
   // GlobalShortcutService.Default
 )
 

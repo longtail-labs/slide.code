@@ -1,517 +1,160 @@
-import { Effect, Layer, Queue, Stream, Ref } from 'effect'
+import { Effect, Layer, Queue, Stream } from 'effect'
 import { PubSubClient } from '../services/pubsub.service.js'
 import { DatabaseService } from '../services/database.service.js'
-import { NotificationService } from '../services/notification.service.js'
+import { AgentManagerService } from '../services/agent-manager.service.js'
 import {
   MessageTypes,
   TaskStartMessage,
   TaskContinueMessage,
-  TaskStopMessage,
-  createInvalidateQuery
+  TaskStopMessage
 } from '@slide.code/schema/messages'
-import { createTasksInvalidation, createTaskInvalidation, DEFAULT_MODEL } from '@slide.code/schema'
+import { DEFAULT_MODEL } from '@slide.code/schema'
 import {
-  ClaudeCodeAgentTag,
-  makeClaudeCodeAgent,
-  type ClaudeCodeAgent
-} from '../resources/ClaudeCodeAgent/claude-code-agent.resource.js'
-import { findClaudeCodeExecutable } from '../effects/findClaudeCodeExecutable.effect.js'
-import type { SdkMessage } from '@slide.code/schema'
-import { Option } from 'effect'
-import { AppReadyRef } from '../refs/ipc/app-ready.ref.js'
+  type TaskContext,
+  createTaskLogger,
+  buildPromptWithComments,
+  publishTaskInvalidations,
+  catchAndLogError,
+  parseTaskMessage
+} from './utils/task-listener.utils.js'
 
-/**
- * Set up a subscriber that handles TASK_START messages by creating and running Claude Code Agent
- */
+// ==============================================
+// SETUP
+// ==============================================
+
+const logger = createTaskLogger('TaskStartListener')
+
+// ==============================================
+// MESSAGE HANDLERS
+// ==============================================
+
+const handleTaskStop = (taskId: string) =>
+  Effect.gen(function* () {
+    yield* logger.logTaskAction('🛑 Stopping Claude Code Agent', taskId)
+
+    const agentManager = yield* AgentManagerService
+    const cancelled = yield* agentManager.cancelAgent(taskId)
+
+    yield* publishTaskInvalidations(taskId)
+
+    if (cancelled) {
+      yield* logger.logSuccess('Agent cancelled successfully', taskId)
+    } else {
+      yield* logger.logSuccess('Task status updated (no agent was running)', taskId)
+    }
+  }).pipe(catchAndLogError('TASK_STOP handling', taskId))
+
+const handleTaskStartOrContinue = (context: TaskContext) =>
+  Effect.gen(function* () {
+    const dbService = yield* DatabaseService
+    const agentManager = yield* AgentManagerService
+
+    yield* logger.logTaskAction('🚀 Processing task request', context.taskId, context.sessionId)
+
+    // Get task and project
+    const task = yield* dbService.getTask(context.taskId)
+    if (!task) {
+      return yield* Effect.fail(`Task not found: ${context.taskId}`)
+    }
+
+    const project = yield* dbService.getProject(task.projectId)
+    if (!project) {
+      return yield* Effect.fail(`Project not found: ${task.projectId}`)
+    }
+
+    // Determine session ID if not provided
+    let finalSessionId = context.sessionId
+    if (!finalSessionId) {
+      const latestSessionId = yield* dbService.getLatestSessionIdForTask(task.id)
+      finalSessionId = latestSessionId || undefined
+    }
+
+    // Build the final prompt with comments
+    const basePrompt = context.prompt || task.name
+    const finalPrompt = buildPromptWithComments(basePrompt, context.fileComments)
+
+    // Create agent configuration
+    const agentConfig = {
+      workingDirectory: project.path,
+      maxTurns: 50,
+      permissionMode:
+        (context.permissionMode as 'default' | 'bypassPermissions' | 'acceptEdits' | 'plan') ||
+        'bypassPermissions',
+      model: context.model || DEFAULT_MODEL,
+      taskId: task.id,
+      taskName: task.name
+    }
+
+    // Create task context for agent
+    const taskContext = {
+      taskId: task.id,
+      sessionId: finalSessionId,
+      prompt: finalPrompt,
+      model: context.model,
+      permissionMode: context.permissionMode,
+      attachments: context.attachments
+    }
+
+    // Create and run the agent
+    yield* agentManager.createAndRunAgent(agentConfig, taskContext)
+
+    yield* logger.logSuccess('Agent creation initiated', task.id)
+  }).pipe(catchAndLogError('task start/continue handling', context.taskId))
+
+// ==============================================
+// MESSAGE PROCESSOR
+// ==============================================
+
+const processMessage = (message: any) =>
+  Effect.gen(function* () {
+    if (message._tag === MessageTypes.TASK_STOP) {
+      const taskMessage = yield* parseTaskMessage(message as TaskStopMessage, 'TASK_STOP')
+      yield* Effect.fork(handleTaskStop(taskMessage.taskId))
+      return
+    }
+
+    if (message._tag === MessageTypes.TASK_START || message._tag === MessageTypes.TASK_CONTINUE) {
+      const taskMessage = yield* parseTaskMessage(
+        message as TaskStartMessage | TaskContinueMessage,
+        message._tag
+      )
+      const isContinueMessage = message._tag === MessageTypes.TASK_CONTINUE
+
+      const context: TaskContext = {
+        taskId: taskMessage.taskId,
+        sessionId: isContinueMessage ? (taskMessage as TaskContinueMessage).sessionId : undefined,
+        prompt: isContinueMessage ? (taskMessage as TaskContinueMessage).prompt : undefined,
+        fileComments: isContinueMessage
+          ? (taskMessage as TaskContinueMessage).fileComments
+          : undefined,
+        model: taskMessage.model,
+        permissionMode: taskMessage.permissionMode,
+        attachments: taskMessage.attachments
+      }
+
+      yield* Effect.fork(handleTaskStartOrContinue(context))
+    }
+  })
+
+// ==============================================
+// MAIN LISTENER SETUP
+// ==============================================
+
 const make = Effect.gen(function* () {
-  yield* Effect.logInfo('Starting TaskStartListener')
+  yield* logger.logInfo('Starting TaskStartListener')
 
   const pubsub = yield* PubSubClient
-  const dbService = yield* DatabaseService
-  const notificationService = yield* NotificationService
-  const appReadyRef = yield* AppReadyRef
+  const agentManager = yield* AgentManagerService
 
-  // Create a ref to store running agents by taskId
-  const runningAgents = yield* Ref.make<Map<string, ClaudeCodeAgent>>(new Map())
-
-  // Get a subscription to all messages
+  // Get message subscription
   const subscription = yield* pubsub.subscribe()
 
-  // Fork a fiber to process messages
+  // Process messages
   yield* Effect.forkScoped(
     Effect.forever(
       Effect.gen(function* () {
         const message = yield* Queue.take(subscription)
-
-        // Handle both TASK_START and TASK_CONTINUE messages
-        if (
-          message._tag === MessageTypes.TASK_START ||
-          message._tag === MessageTypes.TASK_CONTINUE ||
-          message._tag === MessageTypes.TASK_STOP
-        ) {
-          const isStartMessage = message._tag === MessageTypes.TASK_START
-          const isContinueMessage = message._tag === MessageTypes.TASK_CONTINUE
-          const isStopMessage = message._tag === MessageTypes.TASK_STOP
-
-          const taskMessage = message as TaskStartMessage | TaskContinueMessage | TaskStopMessage
-          const taskId = taskMessage.taskId
-          const sessionId = isContinueMessage
-            ? (taskMessage as TaskContinueMessage).sessionId
-            : undefined
-          const continuePrompt = isContinueMessage
-            ? (taskMessage as TaskContinueMessage).prompt
-            : undefined
-          const fileComments = isContinueMessage
-            ? (taskMessage as TaskContinueMessage).fileComments
-            : undefined
-          const messageModel = (taskMessage as TaskStartMessage | TaskContinueMessage).model
-          const messagePermissionMode = (taskMessage as TaskStartMessage | TaskContinueMessage)
-            .permissionMode
-          const attachments = (taskMessage as TaskStartMessage | TaskContinueMessage).attachments
-
-          // Handle TASK_STOP messages
-          if (isStopMessage) {
-            yield* Effect.fork(
-              Effect.gen(function* () {
-                console.log('[TaskStartListener] 🛑 Handling TASK_STOP for task:', taskId)
-                yield* Effect.logInfo(
-                  `[TaskStartListener] 🛑 Stopping Claude Code Agent for task: ${taskId}`
-                )
-
-                // Get the running agent for this task
-                const agents = yield* Ref.get(runningAgents)
-                const agent = agents.get(taskId)
-
-                if (agent) {
-                  console.log('[TaskStartListener] 🛑 Found running agent, cancelling...')
-                  // Cancel the agent - this will handle abort controller and status updates
-                  yield* agent.cancel()
-
-                  // Remove the agent from our tracking
-                  yield* Ref.update(runningAgents, (agents) => {
-                    const newAgents = new Map(agents)
-                    newAgents.delete(taskId)
-                    return newAgents
-                  })
-
-                  console.log('[TaskStartListener] ✅ Agent cancelled and removed from tracking')
-                } else {
-                  console.log('[TaskStartListener] ⚠️ No running agent found for task:', taskId)
-                  // Fallback: just update the task status if no agent is running
-                  yield* dbService.updateTask(taskId, { status: 'stopped' })
-                }
-
-                // Invalidate task queries to update the UI
-                yield* pubsub.publish(createInvalidateQuery(createTasksInvalidation()))
-                yield* pubsub.publish(createInvalidateQuery(createTaskInvalidation(taskId)))
-
-                console.log('[TaskStartListener] ✅ Task stop handling completed:', taskId)
-              }).pipe(
-                Effect.catchAll((error) =>
-                  Effect.logError(`Error handling TASK_STOP message: ${error}`)
-                )
-              )
-            )
-            return // Exit early for TASK_STOP messages
-          }
-
-          yield* Effect.fork(
-            Effect.gen(function* () {
-              console.log(
-                `[TaskStartListener] 🚀 Handling ${message._tag} for task:`,
-                taskId,
-                sessionId ? `(session: ${sessionId})` : '(new session)'
-              )
-              yield* Effect.logInfo(
-                `[TaskStartListener] 🚀 ${isStartMessage ? 'Starting' : 'Continuing'} Claude Code Agent for task: ${taskId}${sessionId ? ` (session: ${sessionId})` : ''}`
-              )
-
-              // Get the task from database to get project info and prompt
-              const task = yield* dbService.getTask(taskId)
-              if (!task) {
-                console.error('[TaskStartListener] ❌ Task not found:', taskId)
-                return yield* Effect.fail(`Task not found: ${taskId}`)
-              }
-
-              // Get the project to get the working directory
-              const project = yield* dbService.getProject(task.projectId)
-              if (!project) {
-                console.error('[TaskStartListener] ❌ Project not found:', task.projectId)
-                return yield* Effect.fail(`Project not found: ${task.projectId}`)
-              }
-
-              console.log('[TaskStartListener] 🔧 Task found:', task.name)
-              console.log('[TaskStartListener] 🔧 Project path:', project.path)
-
-              // Determine session ID to use - for both TASK_START and TASK_CONTINUE we get latest if not provided
-              let finalSessionId = sessionId
-              if (!finalSessionId) {
-                console.log(
-                  `[TaskStartListener] 🔧 ${isStartMessage ? 'TASK_START' : 'TASK_CONTINUE'} - No session ID provided, getting latest from database`
-                )
-                const latestSessionId = yield* dbService.getLatestSessionIdForTask(task.id)
-                finalSessionId = latestSessionId || undefined
-                console.log(
-                  '[TaskStartListener] 🔧 Latest session ID:',
-                  finalSessionId || 'none found'
-                )
-              }
-
-              // Update task status to 'running' when we start
-              yield* dbService.updateTask(task.id, {
-                status: 'running'
-              })
-
-              // Determine the prompt to use
-              let prompt = isContinueMessage && continuePrompt ? continuePrompt : task.name
-
-              // Add file comments to the prompt if present
-              if (fileComments && fileComments.length > 0) {
-                const formattedComments = fileComments
-                  .map((comment) => {
-                    const lineInfo = comment.lineNumber ? ` at line ${comment.lineNumber}` : ''
-                    return `- ${comment.filePath}${lineInfo}: ${comment.comment}`
-                  })
-                  .join('\n')
-
-                prompt += `\n\nFile Comments:\n${formattedComments}`
-
-                console.log(
-                  '[TaskStartListener] 📝 Including file comments in prompt:',
-                  fileComments.length,
-                  'comments'
-                )
-              }
-
-              yield* Effect.forkDaemon(
-                Effect.gen(function* () {
-                  console.log('[TaskStartListener] 🔧 Inside daemon generator function - START')
-                  yield* Effect.logInfo(
-                    '[TaskStartListener] 🔧 Inside daemon generator function - START'
-                  )
-
-                  yield* Effect.logInfo(
-                    '[TaskStartListener] 🚀 About to kick off Claude Code Agent'
-                  )
-                  console.log('[TaskStartListener] KICKING OFF CLAUDE CODE AGENT!')
-
-                  yield* Effect.scoped(
-                    Effect.gen(function* () {
-                      yield* Effect.logInfo('[TaskStartListener] 🔧 Entering scoped section')
-                      console.log('[TaskStartListener] 🔧 Entering scoped section')
-
-                      // Find the Claude executable path first
-                      yield* Effect.logInfo('[TaskStartListener] 🔧 Finding Claude executable')
-                      console.log('[TaskStartListener] 🔧 Finding Claude executable')
-                      const claudeExecutablePath = yield* findClaudeCodeExecutable
-
-                      if (!claudeExecutablePath) {
-                        console.error('[TaskStartListener] ❌ Claude executable not found')
-                        return yield* Effect.fail(new Error('Claude executable not found'))
-                      }
-
-                      yield* Effect.logInfo(
-                        `[TaskStartListener] 🔧 Found Claude executable at: ${claudeExecutablePath}`
-                      )
-                      console.log(
-                        `[TaskStartListener] 🔧 Found Claude executable at: ${claudeExecutablePath}`
-                      )
-
-                      yield* Effect.logInfo(
-                        `[TaskStartListener] 🔧 Working directory: ${project.path}`
-                      )
-                      console.log(`[TaskStartListener] 🔧 Working directory: ${project.path}`)
-
-                      const agent = yield* makeClaudeCodeAgent({
-                        workingDirectory: project.path,
-                        maxTurns: 50,
-                        permissionMode:
-                          (messagePermissionMode as
-                            | 'default'
-                            | 'bypassPermissions'
-                            | 'acceptEdits'
-                            | 'plan') || 'bypassPermissions',
-                        model: messageModel || DEFAULT_MODEL,
-                        pathToClaudeCodeExecutable: claudeExecutablePath
-                      })
-
-                      console.log(
-                        '[TaskStartListener] 🔧 Claude Code Agent initialized for project:',
-                        project.path
-                      )
-
-                      // Store the agent in our tracking ref
-                      yield* Ref.update(runningAgents, (agents) => {
-                        const newAgents = new Map(agents)
-                        newAgents.set(task.id, agent)
-                        return newAgents
-                      })
-
-                      console.log(
-                        '[TaskStartListener] 📝 Agent stored in tracking for task:',
-                        task.id
-                      )
-
-                      // Subscribe to agent messages and save them to database
-                      const messageSubscription = agent.messages.pipe(
-                        Stream.tap((message: SdkMessage) =>
-                          Effect.gen(function* () {
-                            try {
-                              const subtype =
-                                message.type === 'result' || message.type === 'system'
-                                  ? message.subtype
-                                  : null
-
-                              yield* dbService.createChatMessage({
-                                taskId: task.id,
-                                type: message.type,
-                                subtype,
-                                event: message,
-                                sessionId: 'session_id' in message ? message.session_id : null
-                              })
-
-                              // Invalidate the task queries so the UI updates with new messages
-                              console.log(
-                                '[TaskStartListener] 🔄 Publishing task invalidation for UI updates'
-                              )
-
-                              // Invalidate the task detail query (also invalidates task with messages)
-                              yield* pubsub.publish(
-                                createInvalidateQuery(createTaskInvalidation(task.id))
-                              )
-                            } catch (error) {
-                              console.error('[TaskStartListener] ❌ Failed to save message:', error)
-                            }
-                          })
-                        ),
-                        Stream.runDrain
-                      )
-
-                      // Start the message subscription in the background
-                      yield* Effect.fork(messageSubscription)
-
-                      // Save the user prompt as a message
-                      // For new sessions, save the initial prompt
-                      // For continuing sessions, save the continue prompt
-                      if (!finalSessionId) {
-                        console.log(
-                          '[TaskStartListener] 🔧 Creating initial user message for new session'
-                        )
-                      } else {
-                        console.log(
-                          '[TaskStartListener] 🔧 Creating continue user message for existing session'
-                        )
-                      }
-
-                      yield* dbService.createChatMessage({
-                        taskId: task.id,
-                        type: 'prompt',
-                        subtype: null,
-                        event: {
-                          type: 'prompt',
-                          timestamp: Date.now(),
-                          content: isContinueMessage && continuePrompt ? continuePrompt : task.name,
-                          model: messageModel || DEFAULT_MODEL,
-                          permissionMode: messagePermissionMode || 'bypassPermissions',
-                          fileComments: fileComments || undefined,
-                          attachments: attachments || undefined
-                        },
-                        sessionId: finalSessionId || null // Use the session ID if continuing
-                      })
-
-                      // Invalidate task queries after saving the message
-                      yield* pubsub.publish(createInvalidateQuery(createTaskInvalidation(task.id)))
-
-                      if (!finalSessionId) {
-                        console.log(
-                          '[TaskStartListener] 🔧 Starting Claude Code Agent with new session and prompt:',
-                          prompt,
-                          attachments ? `with ${attachments.length} attachments` : 'no attachments'
-                        )
-                        // Start the agent with the initial prompt for new session
-                        yield* agent.run(prompt, undefined, attachments)
-                      } else {
-                        console.log(
-                          '[TaskStartListener] 🔧 Continuing Claude Code Agent with existing session:',
-                          finalSessionId,
-                          attachments ? `with ${attachments.length} attachments` : 'no attachments'
-                        )
-                        // For continuing sessions, use the continue prompt if provided, otherwise task name
-                        yield* agent.run(prompt, finalSessionId, attachments)
-                      }
-
-                      console.log(
-                        '[TaskStartListener] 🔧 Claude Code Agent run command issued. Waiting for completion...'
-                      )
-
-                      // Wait for the agent to reach a terminal state before closing the scope
-                      yield* agent.changes.pipe(
-                        Stream.tap((s) =>
-                          Effect.log(`[TaskStartListener] Agent state changed: ${s.status}`)
-                        ),
-                        Stream.filter(
-                          (s) =>
-                            s.status === 'finished' ||
-                            s.status === 'error' ||
-                            s.status === 'cancelled'
-                        ),
-                        Stream.runHead, // Take the first terminal state and finish the stream
-                        Effect.tap((finalStateOption) => {
-                          const status = finalStateOption.pipe(
-                            Option.map((s) => s.status),
-                            Option.getOrElse(() => 'unknown (stream ended prematurely)')
-                          )
-                          return Effect.gen(function* () {
-                            yield* Effect.logInfo(
-                              `[TaskStartListener] Agent run has concluded with status: ${status}`
-                            )
-
-                            // Remove the agent from tracking since it's completed
-                            yield* Ref.update(runningAgents, (agents) => {
-                              const newAgents = new Map(agents)
-                              newAgents.delete(task.id)
-                              return newAgents
-                            })
-                            console.log(
-                              '[TaskStartListener] 🗑️ Agent removed from tracking for task:',
-                              task.id
-                            )
-
-                            // If the agent finished successfully, update task status to "completed" and check if needs review
-                            if (status === 'finished') {
-                              console.log(
-                                '[TaskStartListener] 🔄 Agent finished successfully, updating task status to "completed"'
-                              )
-
-                              // Check if user is currently viewing this task
-                              const appReadyState = yield* appReadyRef.get()
-                              const isCurrentlyViewing = appReadyState.currentTaskId === task.id
-                              const needsReview = !isCurrentlyViewing
-
-                              console.log(
-                                `[TaskStartListener] 🔍 User currently viewing task ${task.id}: appReadyState: ${appReadyState.currentTaskId}`,
-                                isCurrentlyViewing,
-                                `- needsReview: ${needsReview}`
-                              )
-
-                              yield* dbService.updateTask(task.id, {
-                                status: 'completed',
-                                needsReview
-                              })
-
-                              console.log(
-                                '[TaskStartListener] ✅ Task status updated to "completed" for task:',
-                                task.id,
-                                `(needsReview: ${needsReview})`
-                              )
-
-                              // Show completion notification
-                              yield* Effect.fork(
-                                notificationService
-                                  .showTaskNotificationWithNavigation(
-                                    task.id,
-                                    task.name,
-                                    'completed'
-                                  )
-                                  .pipe(
-                                    Effect.catchAll((error) =>
-                                      Effect.logError(
-                                        `[TaskStartListener] Failed to show completion notification: ${error}`
-                                      )
-                                    )
-                                  )
-                              )
-
-                              // Invalidate task queries to update the UI
-                              yield* pubsub.publish(
-                                createInvalidateQuery(createTasksInvalidation())
-                              )
-                              yield* pubsub.publish(
-                                createInvalidateQuery(createTaskInvalidation(task.id))
-                              )
-
-                              console.log(
-                                '[TaskStartListener] 🔄 Task queries invalidated for UI updates'
-                              )
-                            } else if (status === 'error' || status === 'cancelled') {
-                              // If the agent failed or was cancelled, update status to 'failed' or 'stopped'
-                              const taskStatus = status === 'cancelled' ? 'stopped' : 'failed'
-                              console.log(
-                                `[TaskStartListener] 🔄 Agent ${status}, updating task status to "${taskStatus}"`
-                              )
-
-                              yield* dbService.updateTask(task.id, {
-                                status: taskStatus
-                              })
-
-                              console.log(
-                                '[TaskStartListener] ✅ Task status updated to "' +
-                                  taskStatus +
-                                  '" for task:',
-                                task.id
-                              )
-
-                              // Show completion notification for failed/cancelled tasks
-                              const notificationStatus =
-                                status === 'cancelled' ? 'cancelled' : 'failed'
-                              yield* Effect.fork(
-                                notificationService
-                                  .showTaskNotificationWithNavigation(
-                                    task.id,
-                                    task.name,
-                                    notificationStatus
-                                  )
-                                  .pipe(
-                                    Effect.catchAll((error) =>
-                                      Effect.logError(
-                                        `[TaskStartListener] Failed to show completion notification: ${error}`
-                                      )
-                                    )
-                                  )
-                              )
-
-                              // Invalidate task queries to update the UI
-                              yield* pubsub.publish(
-                                createInvalidateQuery(createTasksInvalidation())
-                              )
-                              yield* pubsub.publish(
-                                createInvalidateQuery(createTaskInvalidation(task.id))
-                              )
-                            }
-                          })
-                        })
-                      )
-
-                      console.log('[TaskStartListener] 🔧 Claude Code Agent scope is now closing.')
-                    })
-                  ).pipe(
-                    Effect.catchAll((error) => {
-                      console.error('[TaskStartListener] ❌ Agent failed with error:', error)
-                      return Effect.logError(`Agent failed with error: ${error}`)
-                    })
-                  )
-                }).pipe(
-                  Effect.catchAllCause((cause) => {
-                    console.error('[TaskStartListener] ❌ Top-level agent fiber failed:', cause)
-                    return Effect.logError(`Top-level agent fiber failed: ${cause}`)
-                  })
-                )
-              )
-
-              console.log(
-                '[TaskStartListener] 🔧 Daemon fork created successfully for task:',
-                taskId
-              )
-              yield* Effect.logInfo(
-                `[TaskStartListener] 🔧 Daemon fork created successfully for task: ${taskId}`
-              )
-            }).pipe(
-              Effect.catchAll((error) =>
-                Effect.logError(`Error handling TASK_START message: ${error}`)
-              )
-            )
-          )
-        }
+        yield* processMessage(message)
       })
     ).pipe(
       Effect.catchAll((error) => {
@@ -521,31 +164,10 @@ const make = Effect.gen(function* () {
     )
   )
 
-  yield* Effect.addFinalizer(() => Effect.logInfo('TaskStartListener stopped'))
+  // Cleanup finalizer - delegate to agent manager
+  yield* Effect.addFinalizer(() => agentManager.cleanupAllAgents())
 
-  // Add cleanup for running agents
-  yield* Effect.addFinalizer(() =>
-    Effect.gen(function* () {
-      const agents = yield* Ref.get(runningAgents)
-      if (agents.size > 0) {
-        yield* Effect.logInfo(`[TaskStartListener] Cleaning up ${agents.size} running agents`)
-
-        // Cancel all running agents
-        yield* Effect.forEach(
-          Array.from(agents.values()),
-          (agent) => agent.cancel().pipe(Effect.orDie),
-          { concurrency: 'unbounded' }
-        )
-
-        // Clear the agents ref
-        yield* Ref.set(runningAgents, new Map())
-
-        yield* Effect.logInfo('[TaskStartListener] All running agents cleaned up')
-      }
-    })
-  )
-
-  return Effect.logInfo('TaskStartListener started')
+  return logger.logInfo('TaskStartListener started')
 }).pipe(Effect.annotateLogs({ module: 'task-start-listener' }))
 
 /**
@@ -555,6 +177,6 @@ export const TaskStartListener = {
   Live: Layer.scopedDiscard(make).pipe(
     Layer.provide(PubSubClient.Default),
     Layer.provide(DatabaseService.Default),
-    Layer.provide(NotificationService.Default)
+    Layer.provide(AgentManagerService.Default)
   )
 }

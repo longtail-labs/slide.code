@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3454d840-e1ec-4d7f-a8bf-4b390e90b613",
+  "id": "575b3571-9067-4f10-ae7e-0af891475e2c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "chat_messages": {
@@ -146,21 +146,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "use_worktree": {
-          "name": "use_worktree",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": false
-        },
-        "worktree_name": {
-          "name": "worktree_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "status": {
           "name": "status",
           "type": "text",
@@ -168,20 +153,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'pending'"
-        },
-        "branch": {
-          "name": "branch",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "stats": {
-          "name": "stats",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "needs_review": {
           "name": "needs_review",

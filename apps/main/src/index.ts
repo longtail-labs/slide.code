@@ -40,49 +40,27 @@ const program = Effect.gen(function* () {
   try {
     log.info('[MAIN] 🔄 Starting main program execution')
 
-    // Register custom protocol for deep linking
-    log.info('[MAIN] 🔗 Registering deep linking protocol')
     yield* registerDeepLinkingProtocol
-    log.info('[MAIN] ✅ Deep linking protocol registered')
 
-    // Get services (these are now scoped to the runtime)
-    log.info('[MAIN] 🛠️ Initializing services')
-    // const sentry = yield* SentryService
     const menuService = yield* MenuService
     const pubsub = yield* PubSubClient
     const electronEventService = yield* ElectronEventService // Get the electron event service
     const userRef = yield* UserRef
     const dbService = yield* DatabaseService
-    log.info('[MAIN] ✅ Services initialized')
 
-    // const globalShortcutService = yield* GlobalShortcutService
-    yield* Effect.logInfo('Initializing ElectronEventService')
-    log.info('[MAIN] 🔄 Initializing ElectronEventService')
     yield* electronEventService.initialize
-    log.info('[MAIN] ✅ ElectronEventService initialized')
 
-    // Then do other performance optimizations and instance checks
-    log.info('[MAIN] ⚡ Applying performance optimizations and checking single instance')
     yield* Effect.all([configurePerformanceOptimizations, ensureSingleInstance])
-    log.info('[MAIN] ✅ Performance optimizations applied and single instance ensured')
 
-    // Create vibe-dir and save path to user ref
-    log.info('[MAIN] 📁 Creating vibe directory')
     const vibeDir = yield* createVibeDir
     yield* userRef.updateVibeDirectory(vibeDir)
     log.info('[MAIN] ✅ Vibe directory created:', vibeDir)
 
-    // Get configuration using Effect Config
-    yield* Effect.logInfo('Loading configuration')
-    log.info('[MAIN] ⚙️ Loading configuration')
     const dbConfig = yield* config.databaseConfig
     const aptabaseConfig = yield* config.aptabaseConfig
-    log.info('[MAIN] ✅ Configuration loaded')
 
     // Wait for app to be ready before proceeding
-    log.info('[MAIN] ⏳ Waiting for Electron app to be ready')
     yield* Effect.promise(() => app.whenReady())
-    yield* Effect.logInfo('📱 App ready, starting up')
     log.info('[MAIN] ✅ Electron app is ready, continuing startup')
 
     try {
@@ -105,14 +83,9 @@ const program = Effect.gen(function* () {
     // Handle app events using the ElectronEventService
     log.info('[MAIN] 🔄 Setting up event handler stream')
     const eventHandler = electronEventService.stream.pipe(
-      Stream.tap((event) => Effect.logInfo(`🔄 Processing event: ${event._tag}`)),
-      Stream.tap((event) =>
-        Effect.sync(() => console.log('🔄 Processing event', JSON.stringify(event, null, 2)))
-      ),
       Stream.tap((event) => Effect.sync(() => log.info('[MAIN] 🔄 Processing event:', event._tag))),
       Stream.runForEach((event) => {
         return Effect.gen(function* () {
-          yield* Effect.logInfo(`Handling electron event: ${event._tag}`, event)
           log.info('[MAIN] 🔄 Handling electron event:', event._tag)
 
           return yield* Match.value(event._tag).pipe(
@@ -152,22 +125,15 @@ const program = Effect.gen(function* () {
 
     // Fork event handler to run in background and save the fiber
     eventHandlerFiber = yield* Effect.fork(eventHandler)
-    yield* Effect.logInfo('🚀 Event handler started')
     log.info('[MAIN] ✅ Event handler started and forked')
 
     // Initialize menu service
-    log.info('[MAIN] 🍔 Creating application menu')
     yield* menuService.createApplicationMenu
-    log.info('[MAIN] ✅ Application menu created')
     // yield* globalShortcutService.initialize
-
-    // Fork background services to run independently
-    log.info('[MAIN] 🚀 Starting background services')
 
     // Initialize ccusage sync in background
     log.info('[MAIN] 📢 Publishing AppReady event')
     yield* pubsub.publish(createAppReady())
-    log.info('[MAIN] ✅ AppReady event published')
 
     yield* Effect.fork(initializeCcusageSync)
 
@@ -226,11 +192,11 @@ const main = program.pipe(
 export function initApp() {
   SlideRuntime.runPromise(Effect.withConfigProvider(main, config.viteConfigProvider())).catch(
     (error) => {
-      console.error('Error in main', error)
+      log.error('[MAIN] ❌ Error in main', error)
 
       // Clean up runtime on error
       SlideRuntime.dispose().catch((disposeError) => {
-        console.error('Error disposing runtime after main error:', disposeError)
+        log.error('[MAIN] ❌ Error disposing runtime after main error:', disposeError)
       })
     }
   )

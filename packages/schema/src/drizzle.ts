@@ -31,14 +31,7 @@ export const tasks = sqliteTable('tasks', {
   projectId: text('project_id')
     .notNull()
     .references(() => projects.id, { onDelete: 'cascade' }),
-  useWorktree: integer('use_worktree', { mode: 'boolean' }).default(false),
-  worktreeName: text('worktree_name'),
   status: text('status', { enum: taskStatuses }).default('pending').notNull(),
-  branch: text('branch'),
-  stats: text('stats', { mode: 'json' }).$type<{
-    additions: number
-    deletions: number
-  }>(),
   needsReview: integer('needs_review', { mode: 'boolean' }).default(true),
   archived: integer('archived', { mode: 'boolean' }).default(false),
   createdAt: text('created_at')

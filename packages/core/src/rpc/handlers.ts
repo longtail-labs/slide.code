@@ -471,8 +471,8 @@ export const SlideLive = SlideRpcs.toLayer(
             Effect.gen(function* () {
               const gitRepo = yield* makeGitRepo({
                 repoPath: project.path,
-                branchName: task.branch || 'master',
-                useWorktree: task.useWorktree || false,
+                branchName: 'master',
+                useWorktree: false,
                 autoInit: false
               })
 
@@ -541,8 +541,8 @@ export const SlideLive = SlideRpcs.toLayer(
             Effect.gen(function* () {
               const gitRepo = yield* makeGitRepo({
                 repoPath: project.path,
-                branchName: task.branch || 'master',
-                useWorktree: task.useWorktree || false,
+                branchName: 'master',
+                useWorktree: false,
                 autoInit: false
               })
 
@@ -589,8 +589,8 @@ export const SlideLive = SlideRpcs.toLayer(
             Effect.gen(function* () {
               const gitRepo = yield* makeGitRepo({
                 repoPath: project.path,
-                branchName: task.branch || 'master',
-                useWorktree: task.useWorktree || false,
+                branchName: 'master',
+                useWorktree: false,
                 autoInit: false
               })
 
@@ -621,10 +621,7 @@ export const SlideLive = SlideRpcs.toLayer(
             return yield* Effect.fail(`Project not found: ${task.projectId}`)
           }
 
-          const pathToOpen =
-            task.useWorktree && task.worktreeName
-              ? path.join(getVibeDir(), 'worktrees', task.worktreeName)
-              : project.path
+          const pathToOpen = project.path
 
           yield* Effect.tryPromise({
             try: () =>
@@ -667,10 +664,12 @@ export const SlideLive = SlideRpcs.toLayer(
             return yield* Effect.fail(`Project not found: ${task.projectId}`)
           }
 
-          const pathToOpen =
-            task.useWorktree && task.worktreeName
-              ? path.join(getVibeDir(), 'worktrees', task.worktreeName)
-              : project.path
+          const pathToOpen = project.path
+
+          // const pathToOpen =
+          // task.useWorktree && task.worktreeName
+          //   ? path.join(getVibeDir(), 'worktrees', task.worktreeName)
+          //   : project.path
 
           yield* Effect.tryPromise({
             try: () =>
@@ -713,10 +712,7 @@ export const SlideLive = SlideRpcs.toLayer(
             return yield* Effect.fail(`Project not found: ${task.projectId}`)
           }
 
-          const pathToOpen =
-            task.useWorktree && task.worktreeName
-              ? path.join(getVibeDir(), 'worktrees', task.worktreeName)
-              : project.path
+          const pathToOpen = project.path
 
           yield* Effect.tryPromise({
             try: () =>
@@ -771,10 +767,7 @@ export const SlideLive = SlideRpcs.toLayer(
             return yield* Effect.fail(`Project not found: ${task.projectId}`)
           }
 
-          const pathToOpen =
-            task.useWorktree && task.worktreeName
-              ? path.join(getVibeDir(), 'worktrees', task.worktreeName)
-              : project.path
+          const pathToOpen = project.path
 
           yield* Effect.tryPromise({
             try: () =>

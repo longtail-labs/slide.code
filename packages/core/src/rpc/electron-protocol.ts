@@ -223,7 +223,6 @@ export const makeElectronProtocol = Effect.gen(function* () {
           // const serializedResponse = JSON.parse(JSON.stringify(response))
 
           // console.log('SENDING MESSAGE', response, serializedResponse)
-          console.log('SENDING MESSAGE', response)
 
           // Send the response through the MessagePort
           port.postMessage(response)

@@ -234,14 +234,17 @@ export function PromptBox({ task }: PromptBoxProps) {
           {isTaskRunning ? (
             <Button
               variant="destructive"
-              className="w-12 h-12 p-0 bg-red-600 hover:bg-red-700 border-red-600"
+              className="w-12 h-12 p-0 bg-red-600 hover:bg-red-700 border border-red-600 relative"
               onClick={handleStop}
               disabled={stopTask.isPending}
             >
               {stopTask.isPending ? (
-                <IconLoader2 className="w-5 h-5 animate-spin" />
+                <IconLoader2 className="w-5 h-5 animate-spin text-white" />
               ) : (
-                <IconSquare className="w-5 h-5 fill-current" />
+                <>
+                  <IconSquare className="w-4 h-4 fill-white text-white" />
+                  <IconLoader2 className="w-3 h-3 animate-spin text-white absolute top-1 right-1" />
+                </>
               )}
             </Button>
           ) : (

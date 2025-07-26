@@ -42,7 +42,7 @@ export interface ClaudeCodeConfig {
  * Default Claude Code configuration
  */
 export const defaultClaudeCodeConfig: ClaudeCodeConfig = {
-  maxTurns: 10,
+  maxTurns: 25,
   permissionMode: 'bypassPermissions',
   model: 'claude-sonnet-4-20250514',
   fallbackModel: 'claude-3-haiku-20240307',
