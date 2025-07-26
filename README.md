@@ -17,7 +17,7 @@
   
   <br/>
   
-  <img src=".screenshots/home-light.png" alt="Home Light Mode" width="90%" />
+  <img src=".screenshots/running.png" alt="Home Light Mode" width="90%" />
   <p><em>Home - Light Mode</em></p>
   
   <br/>
