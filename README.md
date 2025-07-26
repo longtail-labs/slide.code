@@ -116,8 +116,6 @@ Slide Code is a intuitive desktop application that ideally makes it a bit easier
 3. **Give it a Prompt**: Describe what you want to build
 4. **Watch the Magic**: Claude Code starts working while you vibe to your favorite tunes
 
-It's that simple! 🎉
-
 ## 🏗️ Tech Stack
 
 ### **Desktop Application**
