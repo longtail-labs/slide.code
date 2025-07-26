@@ -47,12 +47,12 @@
     </tr>
     <tr>
       <td width="50%">
-        <img src=".screenshots/mcp.png" alt="MCP Integration" width="100%" />
-        <p align="center"><em>MCP Integration</em></p>
+        <img src=".screenshots/settings.png" alt="Settings" width="100%" />
+        <p align="center"><em>Settings and Usage</em></p>
       </td>
       <td width="50%">
-        <img src=".screenshots/settings.png" alt="Settings" width="100%" />
-        <p align="center"><em>Settings</em></p>
+        <img src=".screenshots/playtime.png" alt="Playtime" width="100%" />
+        <p align="center"><em>Playtime</em></p>
       </td>
     </tr>
     <tr>
@@ -61,8 +61,8 @@
         <p align="center"><em>Game Integration</em></p>
       </td>
       <td width="50%">
-        <img src=".screenshots/ccusage.png" alt="Usage Analytics" width="100%" />
-        <p align="center"><em>Usage Analytics</em></p>
+        <img src=".screenshots/mcp.png" alt="MCP Integration" width="100%" />
+        <p align="center"><em>MCP Integration</em></p>
       </td>
     </tr>
   </table>
