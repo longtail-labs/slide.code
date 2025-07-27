@@ -12,8 +12,8 @@ on:
 
 jobs:
   generate-version:
-    # runs-on: blacksmith-4vcpu-ubuntu-2204
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2204
+    # runs-on: ubuntu-latest
     outputs:
       beta_version: ${{ steps.set-version.outputs.beta_version }}
     steps:
