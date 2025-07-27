@@ -1,15 +1,11 @@
-name: Version Tag Release
+name: Release
 
 on:
-  push:
-    tags:
-      - '*.*.*'
-  # Allow manual triggering
   workflow_dispatch:
 
 jobs:
-  create-release:
-    name: Create Release for Version
+  release:
+    name: Build and Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -26,9 +22,40 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Extract version from tag
+      - name: Get version from package.json
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building release for version: $VERSION"
+
+      - name: Check if release already exists
+        id: check_release
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: `${{ steps.get_version.outputs.VERSION }}`
+              });
+              console.log(`Release v${{ steps.get_version.outputs.VERSION }} already exists`);
+              return true;
+            } catch (error) {
+              if (error.status === 404) {
+                console.log(`No existing release for v${{ steps.get_version.outputs.VERSION }}`);
+                return false;
+              }
+              throw error;
+            }
+
+      - name: Exit if release exists
+        if: steps.check_release.outputs.result == 'true'
+        run: |
+          echo "Release ${{ steps.get_version.outputs.VERSION }} already exists. Exiting."
+          exit 0
 
       - name: Install Dependencies
         run: npm install
@@ -49,31 +76,6 @@ jobs:
           npm run make:prod
         env:
           VITE_APTABASE_APP_KEY: ${{ secrets.VITE_APTABASE_APP_KEY }}
-
-      - name: Update package.json with release version
-        run: |
-          # Update package.json with the release version using npm pkg
-          npm pkg set version="${{ steps.get_version.outputs.VERSION }}"
-
-      # Check if a release already exists
-      - name: Check for existing release
-        id: check_release
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            try {
-              const release = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag: context.ref.replace('refs/tags/', '')
-              });
-              return true;
-            } catch (error) {
-              if (error.status === 404) return false;
-              throw error;
-            }
-        continue-on-error: true
 
       - name: Run Conveyor for Release Build
         uses: hydraulic-software/conveyor/actions/build@v18.1
