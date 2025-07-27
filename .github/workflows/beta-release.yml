@@ -6,13 +6,13 @@ on:
     - cron: '0 3 * * *'
   push:
     branches:
-      - june-29
+      - windows
   # Allow manual triggering
   workflow_dispatch:
 
 jobs:
   generate-version:
-    runs-on: blacksmith-4vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     outputs:
       beta_version: ${{ steps.set-version.outputs.beta_version }}
     steps:
@@ -33,7 +33,7 @@ jobs:
 
   conveyor-beta-build:
     name: Build Beta macOS App
-    runs-on: blacksmith-4vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     needs: [generate-version]
     permissions:
       contents: write

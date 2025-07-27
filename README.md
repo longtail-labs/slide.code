@@ -58,7 +58,7 @@
     <tr>
       <td width="50%">
         <img src=".screenshots/game.png" alt="Game Integration" width="100%" />
-        <p align="center"><em>Game Integration</em></p>
+        <p align="center"><em>Game Mode</em></p>
       </td>
       <td width="50%">
         <img src=".screenshots/mcp.png" alt="MCP Integration" width="100%" />
@@ -131,7 +131,7 @@ Slide Code is a intuitive desktop application that ideally makes it a bit easier
 - **ccusage**: Claude Code usage tracking
 - **Claude Code SDK**: Official SDK for Claude Code integration
 
-### **Game Server** (`/game`)
+### **Game** (`/game`)
 
 - **Go**: High-performance backend language
 - **Templ**: Type-safe HTML templating
@@ -216,7 +216,7 @@ npm run studio              # Open Drizzle Studio
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 
 ## 🌟 Support
 
