@@ -3,7 +3,7 @@ name: Version Tag Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - '*.*.*'
   # Allow manual triggering
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
 
       - name: Extract version from tag
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Install Dependencies
         run: npm install
