@@ -2,7 +2,7 @@
 
 **A Graphical Vibe Coding Environment (VCE) for Claude Code**
 
-[Join our Discord](https://discord.gg/2RgudA7g) • [View All Releases](https://github.com/longtail-labs/slide.code.releases/releases/latest) • [📥 Download](https://longtail-labs.github.io/slide.code/download.html)
+<a href="https://discord.gg/2RgudA7g" target="_blank">Join our Discord</a> • <a href="https://github.com/longtail-labs/slide.code.releases/releases/latest" target="_blank">View All Releases</a> • <a href="https://longtail-labs.github.io/slide.code/download.html" target="_blank">📥 Download</a>
 
 ## 📥 Downloads
 
@@ -79,6 +79,29 @@
 
 Slide Code is a intuitive desktop application that ideally makes it a bit easier to run multiple Claude Code agents at once
 
+## 🏗️ Tech Stack
+
+### **Desktop Application**
+
+- **<a href="https://www.electronjs.org/" target="_blank">Electron</a>**: Cross-platform desktop framework
+- **<a href="https://reactjs.org/" target="_blank">React</a>**: Modern UI library with hooks
+- **<a href="https://www.typescriptlang.org/" target="_blank">TypeScript</a>**: Type-safe JavaScript
+- **<a href="https://effect.website/" target="_blank">Effect-TS</a>**: Functional programming for robust async operations
+- **<a href="https://orm.drizzle.team/" target="_blank">Drizzle ORM</a>**: Type-safe database operations
+- **<a href="https://www.sqlite.org/" target="_blank">SQLite</a>/<a href="https://turso.tech/" target="_blank">Turso</a>**: Local and cloud database support
+- **<a href="https://ui.shadcn.com/" target="_blank">shadcn/ui</a>**: Beautiful, accessible UI components
+- **<a href="https://tailwindcss.com/" target="_blank">Tailwind CSS</a>**: Utility-first CSS framework
+- **<a href="https://github.com/ryoppippi/ccusage" target="_blank">ccusage</a>**: Claude Code usage tracking
+- **<a href="https://hydraulic.dev/" target="_blank">Hydraulic Conveyor</a>**: Desktop app distribution, simplified
+- **<a href="https://github.com/anthropics/claude-code" target="_blank">Claude Code SDK</a>**: Official SDK for Claude Code integration
+
+### **Game** (`/game`)
+
+- **<a href="https://golang.org/" target="_blank">Go</a>**: High-performance backend language
+- **<a href="https://templ.guide/" target="_blank">Templ</a>**: Type-safe HTML templating
+- **<a href="https://data-star.dev/" target="_blank">Datastar</a>**: Reactive frontend framework
+- **<a href="https://nats.io/" target="_blank">NATS.io</a>**: Cloud-native messaging system
+
 ## ✨ Features
 
 ### 🎯 **Effortless Project Management**
@@ -113,7 +136,7 @@ Slide Code is a intuitive desktop application that ideally makes it a bit easier
 
 ### Prerequisites
 
-- **Claude Code CLI**: Follow the setup guide at [docs.anthropic.com/en/docs/claude-code/setup](https://docs.anthropic.com/en/docs/claude-code/setup)
+- **Claude Code CLI**: Follow the setup guide at <a href="https://docs.anthropic.com/en/docs/claude-code/setup" target="_blank">docs.anthropic.com/en/docs/claude-code/setup</a>
 
 ### Getting Started
 
@@ -124,28 +147,6 @@ Slide Code is a intuitive desktop application that ideally makes it a bit easier
 3. **Give it a Prompt**: Describe what you want to build
 4. **Watch the Magic**: Claude Code starts working while you vibe to your favorite tunes
 
-## 🏗️ Tech Stack
-
-### **Desktop Application**
-
-- **Electron**: Cross-platform desktop framework
-- **React**: Modern UI library with hooks
-- **TypeScript**: Type-safe JavaScript
-- **Effect-TS**: Functional programming for robust async operations
-- **Drizzle ORM**: Type-safe database operations
-- **SQLite/Turso**: Local and cloud database support
-- **shadcn/ui**: Beautiful, accessible UI components
-- **Tailwind CSS**: Utility-first CSS framework
-- **ccusage**: Claude Code usage tracking
-- **Conveyor**: Desktop app distribution, simplified
-- **Claude Code SDK**: Official SDK for Claude Code integration
-
-### **Game** (`/game`)
-
-- **Go**: High-performance backend language
-- **Templ**: Type-safe HTML templating
-- **Datastar**: Reactive frontend framework
-- **NATS.io**: Cloud-native messaging system
 
 ## 🔄 Roadmap
 
@@ -231,5 +232,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - ⭐ **Star this repo** if you find it useful
 - 🐛 **Report bugs** via GitHub Issues
-- 💬 **Chat with us & Request features** on [Discord](https://discord.gg/2RgudA7g)
-- 🐦 **Follow me** on Twitter [@jonovono](https://x.com/jonovono)
+- 💬 **Chat with us & Request features** on <a href="https://discord.gg/2RgudA7g" target="_blank">Discord</a>
+- 🐦 **Follow me** on Twitter <a href="https://x.com/jonovono" target="_blank">@jonovono</a>
