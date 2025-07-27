@@ -13,7 +13,8 @@ on:
 jobs:
   generate-version:
     # runs-on: blacksmith-4vcpu-ubuntu-2204-arm
-    runs-on: ubuntu-latest
+    # runs-on: ubuntu-latest
+    runs-on: warp-ubuntu-latest-x64-2x
     outputs:
       beta_version: ${{ steps.set-version.outputs.beta_version }}
     steps:
@@ -35,7 +36,8 @@ jobs:
   conveyor-beta-build:
     name: Build Beta macOS App
     # runs-on: blacksmith-4vcpu-ubuntu-2204-arm
-    runs-on: ubuntu-latest
+    # runs-on: ubuntu-latest
+    runs-on: warp-ubuntu-latest-x64-2x
     needs: [generate-version]
     permissions:
       contents: write
