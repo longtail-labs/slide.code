@@ -6,7 +6,7 @@ on:
     - cron: '0 3 * * *'
   push:
     branches:
-      - june-29
+      - windows
   # Allow manual triggering
   workflow_dispatch:
 
