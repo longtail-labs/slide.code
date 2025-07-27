@@ -2,7 +2,19 @@
 
 **A Graphical Vibe Coding Environment (VCE) for Claude Code**
 
-[Join our Discord](https://discord.gg/2RgudA7g) • [Download Latest Release](https://github.com/your-username/slide-code/releases)
+[Join our Discord](https://discord.gg/2RgudA7g) • [View All Releases](https://github.com/longtail-labs/slide.code.releases/releases/latest)
+
+## 📥 Downloads
+
+<div align="center">
+
+[![macOS Apple Silicon](https://img.shields.io/badge/🍎_macOS_(Apple_Silicon)-Download-blue?style=for-the-badge&logo=apple&logoColor=white)](https://slide-code-downloader.internal-slide.workers.dev/mac-silicon)
+
+[![macOS Intel](https://img.shields.io/badge/🍎_macOS_(Intel)-Download-blue?style=for-the-badge&logo=apple&logoColor=white)](https://slide-code-downloader.internal-slide.workers.dev/mac-intel)
+
+[![Windows](https://img.shields.io/badge/🪟_Windows-Download-blue?style=for-the-badge&logo=windows&logoColor=white)](https://slide-code-downloader.internal-slide.workers.dev/windows)
+
+</div>
 
 ---
 
