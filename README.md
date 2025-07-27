@@ -137,6 +137,7 @@ Slide Code is a intuitive desktop application that ideally makes it a bit easier
 - **shadcn/ui**: Beautiful, accessible UI components
 - **Tailwind CSS**: Utility-first CSS framework
 - **ccusage**: Claude Code usage tracking
+- **Conveyor**: Desktop app distribution, simplified
 - **Claude Code SDK**: Official SDK for Claude Code integration
 
 ### **Game** (`/game`)
