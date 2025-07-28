@@ -5,8 +5,8 @@
   "beta": false,
   "description": "IDE for Claude Code",
   "main": "packages/entry-point.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "Jordan",
+  "homepage": "https://sssli.de/code",
   "updateSite": "http://localhost:3000",
   "debug": {
     "env": {

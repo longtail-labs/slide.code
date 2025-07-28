@@ -3,8 +3,11 @@ import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { compress, decompress } from 'lz-string'
 import { PubsubClient } from '../pubsub/index.js'
-import { createInvalidateQuery } from '@slide.code/schema/messages'
-import type { InvalidateQueryMessage } from '@slide.code/schema/messages'
+import {
+  createInvalidateQuery,
+  MessageTypes,
+  type InvalidateQueryMessage
+} from '@slide.code/schema/messages'
 
 // Create a localStorage persister with compression
 export const localStoragePersister = createSyncStoragePersister({
@@ -88,7 +91,7 @@ export const setupQueryInvalidationsListener = () => {
 
   const pubsub = PubsubClient.getInstance()
 
-  pubsub.subscribe('InvalidateQuery', {
+  pubsub.subscribe(MessageTypes.INVALIDATE_QUERY, {
     onData: (event: InvalidateQueryMessage) => {
       if (event && event.queryKey) {
         queryClient.invalidateQueries({ queryKey: event.queryKey })

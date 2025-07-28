@@ -107,7 +107,7 @@ Slide Code is a intuitive desktop application that ideally makes it a bit easier
 ### 🎯 **Effortless Project Management**
 
 - **One-Click Project Creation**: Create new projects instantly or select existing ones, no Github integration required
-- **Vibe Directory**: Automatically organizes all your projects in a dedicated vibe folder
+- **Vibe Directory**: New projects get placed into a specified directory
 - **Multi-Task Execution**: Run multiple Claude Code tasks simultaneously 
 - **Session Persistence**: Resume your coding sessions anytime, anywhere
 
@@ -188,6 +188,33 @@ slide-code/
 └── bundled_modules/    # Native dependencies (LibSQL)
 ```
 
+### **🏗️ Architecture Benefits**
+
+This Electron app setup provides several developer experience advantages:
+
+#### **⚡ Instant Hot Reload**
+
+- Uses Vite dev server for instant React/UI changes without restart
+- Frontend code in [`widgets/app/`](widgets/app/) refreshes immediately
+- Electron app loads from Vite in development mode ([`packages/core/src/flows/app.flow.ts:93-102`](packages/core/src/flows/app.flow.ts#L93))
+
+#### **🔒 Type-Safe IPC Boundary**
+
+Built with Effect.ts for robust cross-process communication:
+
+- **PubSub Pattern** ([`packages/clients/src/pubsub/`](packages/clients/src/pubsub/)): Event-based messaging for notifications and updates across main/renderer boundary
+- **RPC Pattern** ([`packages/core/src/rpc/`](packages/core/src/rpc/)): Type-safe remote procedure calls similar to tRPC, enabling request-response patterns between processes
+- **IPCRef Pattern** ([`packages/core/src/services/ipc-ref.service.ts`](packages/core/src/services/ipc-ref.service.ts)): Shared state management like Zustand but works across process boundaries with automatic synchronization
+
+#### **🎯 Additional Notable Features**
+
+- **Effect.ts Integration**: Functional programming patterns for better error handling and composability
+- **Dependency Injection**: Effect.ts makes DI trivial - services are automatically provided through layers, making testing and modularity seamless
+- **Cross-IPC Database Access**: Direct Drizzle queries from renderer ([`packages/clients/src/drizzle/`](packages/clients/src/drizzle/), [`packages/core/src/rpc/handlers.ts:828-840`](packages/core/src/rpc/handlers.ts#L828)) using [Drizzle HTTP Proxy](https://orm.drizzle.team/docs/connect-drizzle-proxy)
+- **Smart Data Syncing**: TanStack Query can be invalidated from main process ([`packages/schema/src/queryKeys.ts`](packages/schema/src/queryKeys.ts), [`packages/clients/src/tanstack/index.ts:71-78`](packages/clients/src/tanstack/index.ts#L71), [`packages/core/src/services/pubsub.service.ts:153-205`](packages/core/src/services/pubsub.service.ts#L153)), enabling automatic UI updates when backend data changes
+- **Secure Context Bridge**: Preload scripts carefully expose only safe APIs to renderer
+- **Automatic State Persistence**: IPCRef supports optional persistence to disk with rehydration on app start
+
 ### **Development Commands**
 
 #### **Electron App**
@@ -223,6 +250,79 @@ npm run studio              # Open Drizzle Studio
 3. **Make changes**: Edit files in `widgets/app/src/` for UI, `packages/core/src/` for logic
 4. **Hot reload**: Changes automatically reload in development
 
+
+## 🔨 Building Locally
+
+### **Prerequisites**
+
+- Node.js 22+ (required)
+- macOS, Windows, or Linux
+- [Hydraulic Conveyor](https://hydraulic.dev/) (for distribution builds)
+
+### **Local Build Instructions**
+
+1. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+
+2. **Build the Application**
+
+   ```bash
+   # For production build
+   npm run build:prod
+   
+   # For beta build
+   npm run build:beta
+   ```
+
+4. **Process the build**
+
+  ```bash
+  # For production build
+  npm run make:prod
+
+  # For beta build
+  npm run make:beta
+  ```
+
+4. **Build with Conveyor**
+   
+   ```bash
+   # Build for local testing (uses conveyor.local.conf)
+   npm run compile:local
+   
+   # The built application will be in /output. Move the app to your Applications folder to test
+   ```
+
+### **Nightly Beta Releases**
+
+The project supports automated nightly beta releases via GitHub Actions:
+- Beta builds use [`conveyor.beta.conf`](conveyor.beta.conf) for configuration
+- Automatically published to the beta release channel
+- Separate app ID and branding from production releases
+
+## 🤝 Contributing
+
+Contributing to Slide Code is straightforward thanks to our strongly-typed architecture:
+
+### **Type-Safe Development**
+
+The entire codebase is strongly typed across the IPC boundary, making it hard to introduce runtime errors:
+- **TypeScript everywhere**: From main process to renderer, all code is type-checked
+- **Effect.ts schemas**: Ensure data integrity across process boundaries
+- **Build-time validation**: Running `npm run build` will catch most issues before runtime
+
+### **Quick Contribution Guide**
+
+1. Fork the repository and clone your fork
+2. Install dependencies: `npm install`
+3. Make your changes
+4. Run the build: `npm run build`
+5. Test your changes: `npm run start:app`
+6. Submit a pull request
+
+The strong typing means if your code compiles, it's likely to work correctly!
 
 ## 📄 License
 
