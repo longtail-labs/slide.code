@@ -14,6 +14,10 @@
 
 ---
 
+> **⚠️ Note**: This project is forked from another codebase and is under rapid development. You may encounter remnants from the original project that need improvement, and things may break as we iterate quickly. We appreciate your patience and welcome contributions to help improve the codebase!
+
+---
+
 ## 📸 Screenshots
 
 <div align="center">
