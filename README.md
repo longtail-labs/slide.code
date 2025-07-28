@@ -320,7 +320,7 @@ The entire codebase is strongly typed across all boundaries, making it hard to i
 
 1. Fork the repository and clone your fork
 2. Install dependencies: `npm install`
-3. Make your changes
+3. Make your changes (You can even have Slide Code open and making changes on itself while running 😅. Sometimes causes issues, but sometimes works great!)
 4. Run the build: `npm run build`
 5. Test your changes: `npm run start:app`
 6. Submit a pull request
