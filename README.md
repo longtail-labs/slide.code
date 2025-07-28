@@ -310,8 +310,9 @@ Contributing to Slide Code is straightforward thanks to our strongly-typed archi
 
 ### **Type-Safe Development**
 
-The entire codebase is strongly typed across the IPC boundary, making it hard to introduce runtime errors:
+The entire codebase is strongly typed across all boundaries, making it hard to introduce runtime errors:
 - **TypeScript everywhere**: From main process to renderer, all code is type-checked
+- **Drizzle ORM**: Type-safe database schemas and queries with compile-time validation
 - **Effect.ts schemas**: Ensure data integrity across process boundaries
 - **Build-time validation**: Running `npm run build` will catch most issues before runtime
 
