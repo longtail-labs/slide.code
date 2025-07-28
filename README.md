@@ -126,6 +126,8 @@ Slide Code is a intuitive desktop application that ideally makes it a bit easier
 - **Notifications**: Get native OS alerts when tasks complete, fail, or are cancelled
 - **Comment System**: Add notes and feedback directly to your diffs
 - **Usage Analytics**: Track your Claude Code usage, costs, and token consumption at a glance
+- **Attachments Support**: Easily attach images, documents, and other files for the agent to work with
+- **Task Control**: Stop and cancel running Claude Code agents with a single click
 
 ### 🎨 **Beautiful UI/UX**
 
