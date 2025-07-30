@@ -24,11 +24,29 @@ index 9ac15cc..f4850dd 100644
 +  try {
 +    // First priority: Resources path (for packaged apps)
 +    if (process.resourcesPath) {
-+      const resourcePath = path.join(process.resourcesPath, "libsql", target, "index.node");
-+      if (fs.existsSync(resourcePath)) {
-+        const nativeModule = { exports: {} };
-+        process.dlopen(nativeModule, resourcePath);
-+        return nativeModule.exports;
++      // For Windows, use the msvc-specific path in Resources
++      if (target === "win32-x64") {
++        const msvcResourcePath = path.join(process.resourcesPath, "libsql", "win32-x64-msvc", "index.node");
++        if (fs.existsSync(msvcResourcePath)) {
++          const nativeModule = { exports: {} };
++          process.dlopen(nativeModule, msvcResourcePath);
++          return nativeModule.exports;
++        }
++      } else if (target === "win32-arm64") {
++        const msvcResourcePath = path.join(process.resourcesPath, "libsql", "win32-arm64-msvc", "index.node");
++        if (fs.existsSync(msvcResourcePath)) {
++          const nativeModule = { exports: {} };
++          process.dlopen(nativeModule, msvcResourcePath);
++          return nativeModule.exports;
++        }
++      } else {
++        // For other platforms, use standard target path
++        const resourcePath = path.join(process.resourcesPath, "libsql", target, "index.node");
++        if (fs.existsSync(resourcePath)) {
++          const nativeModule = { exports: {} };
++          process.dlopen(nativeModule, resourcePath);
++          return nativeModule.exports;
++        }
 +      }
 +    }
 +    
@@ -38,6 +56,21 @@ index 9ac15cc..f4850dd 100644
 +      const nativeModule = { exports: {} };
 +      process.dlopen(nativeModule, bundledPath);
 +      return nativeModule.exports;
++    }
++    
++    // Third priority: Check for Windows-specific msvc target in node_modules
++    if (target === "win32-x64") {
++      try {
++        return require(`@libsql/win32-x64-msvc`);
++      } catch (e) {
++        // Continue to fallback
++      }
++    } else if (target === "win32-arm64") {
++      try {
++        return require(`@libsql/win32-arm64-msvc`);
++      } catch (e) {
++        // Continue to fallback
++      }
 +    }
 +  } catch (e) {
 +    // Ignore errors and fall back to original behavior
