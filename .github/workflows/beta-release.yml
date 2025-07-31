@@ -64,7 +64,7 @@ jobs:
         run: |
           npm run make:beta
         env:
-          VITE_APTABASE_APP_KEY: ${{ secrets.VITE_APTABASE_APP_KEY }}
+          APTABASE_APP_KEY: ${{ secrets.VITE_APTABASE_APP_KEY }}
 
       - name: Update package.json with beta version
         run: |
@@ -81,7 +81,7 @@ jobs:
           ENV: production
           MODE: beta
           BUILD_VERSION: ${{ needs.generate-version.outputs.beta_version }}
-          VITE_APTABASE_APP_KEY: ${{ secrets.VITE_APTABASE_APP_KEY }}
+          APTABASE_APP_KEY: ${{ secrets.VITE_APTABASE_APP_KEY }}
           APPLE_NOTARIZATION_ISSUER_ID: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
           APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
           APPLE_NOTARIZATION_PRIVATE_KEY: ${{ secrets.APPLE_NOTARIZATION_PRIVATE_KEY }}

@@ -96,7 +96,7 @@ const program = Effect.gen(function* () {
     }
 
     // Initialize Aptabase analytics
-    log.info('[MAIN] 📊 Initializing Aptabase analytics')
+    log.info('[MAIN] 📊 Initializing Aptabase analytics', aptabaseConfig)
     yield* Effect.fork(initializeAptabaseEffect(aptabaseConfig))
     log.info('[MAIN] ✅ Aptabase analytics initialized')
 
@@ -211,16 +211,16 @@ const main = program.pipe(
 
 export function initApp() {
   log.info('[MAIN] 🚀 initApp() called - starting SlideRuntime')
-  
+
   try {
     log.info('[MAIN] 🔄 Creating config provider...')
     const configProvider = config.viteConfigProvider()
     log.info('[MAIN] ✅ Config provider created')
-    
+
     log.info('[MAIN] 🔄 Creating main effect with config...')
     const mainWithConfig = Effect.withConfigProvider(main, configProvider)
     log.info('[MAIN] ✅ Main effect configured')
-    
+
     log.info('[MAIN] 🔄 Running SlideRuntime.runPromise...')
     SlideRuntime.runPromise(mainWithConfig)
       .then(() => {

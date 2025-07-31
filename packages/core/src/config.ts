@@ -37,7 +37,7 @@ export const sentryConfig = Config.map(
 // Aptabase configuration
 export const aptabaseConfig = Config.map(
   Config.all([
-    Config.string('VITE_APTABASE_APP_KEY').pipe(Config.withDefault('A-US-6262631782')),
+    Config.string('APTABASE_APP_KEY'),
     Config.succeed(process.env.NODE_ENV)
   ]),
   ([appKey, environment]) => ({
