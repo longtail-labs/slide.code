@@ -22,7 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.9",
+    "@libsql/client": "^0.15.10",
     "@slide.code/schema": "*",
     "@slide.code/shared": "*"
   },

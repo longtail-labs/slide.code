@@ -4,9 +4,6 @@ on:
   # Run nightly at midnight UTC
   schedule:
     - cron: '0 3 * * *'
-  push:
-    branches:
-      - windows
   # Allow manual triggering
   workflow_dispatch:
 
