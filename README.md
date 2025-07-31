@@ -2,7 +2,7 @@
 
 **A Graphical Vibe Coding Environment (VCE) for Claude Code**
 
-[Join our Discord](https://discord.gg/2RgudA7g) • [View All Releases](https://github.com/longtail-labs/slide.code.releases/releases/latest) • [📥 Download](https://longtail-labs.github.io/slide.code/download.html)
+[Join our Discord](https://discord.gg/2RgudA7g) • [View All Releases](https://github.com/longtail-labs/slide.code/releases/latest) • [📥 Download](https://longtail-labs.github.io/slide.code/download.html)
 
 ## 📥 Downloads
 
