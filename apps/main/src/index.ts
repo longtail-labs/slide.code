@@ -238,7 +238,7 @@ export function initApp() {
       })
   } catch (syncError) {
     log.error('[MAIN] ❌ Synchronous error in initApp:', syncError)
-    log.error('[MAIN] ❌ Sync error stack:', syncError?.stack)
+    log.error('[MAIN] ❌ Sync error stack:', syncError instanceof Error ? syncError.stack : 'No stack trace')
     log.error('[MAIN] ❌ Sync error details:', JSON.stringify(syncError, null, 2))
   }
 }
