@@ -97,8 +97,17 @@ const program = Effect.gen(function* () {
 
     // Initialize Aptabase analytics
     log.info('[MAIN] 📊 Initializing Aptabase analytics', aptabaseConfig)
-    yield* Effect.fork(initializeAptabaseEffect(aptabaseConfig))
-    log.info('[MAIN] ✅ Aptabase analytics initialized')
+    if (aptabaseConfig.appKey._tag === 'Some') {
+      yield* Effect.fork(
+        initializeAptabaseEffect({
+          appKey: aptabaseConfig.appKey.value,
+          debug: aptabaseConfig.debug
+        })
+      )
+      log.info('[MAIN] ✅ Aptabase analytics initialized')
+    } else {
+      log.info('[MAIN] 📊 Aptabase analytics disabled - no app key provided')
+    }
 
     // Handle app events using the ElectronEventService
     log.info('[MAIN] 🔄 Setting up event handler stream')
@@ -238,7 +247,10 @@ export function initApp() {
       })
   } catch (syncError) {
     log.error('[MAIN] ❌ Synchronous error in initApp:', syncError)
-    log.error('[MAIN] ❌ Sync error stack:', syncError instanceof Error ? syncError.stack : 'No stack trace')
+    log.error(
+      '[MAIN] ❌ Sync error stack:',
+      syncError instanceof Error ? syncError.stack : 'No stack trace'
+    )
     log.error('[MAIN] ❌ Sync error details:', JSON.stringify(syncError, null, 2))
   }
 }
