@@ -1,9 +1,8 @@
 diff --git a/node_modules/libsql/.DS_Store b/node_modules/libsql/.DS_Store
 new file mode 100644
-index 0000000..9e99537
-Binary files /dev/null and b/node_modules/libsql/.DS_Store differ
+index 0000000..e69de29
 diff --git a/node_modules/libsql/index.js b/node_modules/libsql/index.js
-index 9ac15cc..f4850dd 100644
+index e249879..20deaf2 100644
 --- a/node_modules/libsql/index.js
 +++ b/node_modules/libsql/index.js
 @@ -2,6 +2,8 @@
@@ -15,7 +14,7 @@ index 9ac15cc..f4850dd 100644
  
  function requireNative() {
    if (process.env.LIBSQL_JS_DEV) {
-@@ -23,6 +25,31 @@ function requireNative() {
+@@ -23,6 +25,64 @@ function requireNative() {
    if (target === "linux-arm-gnueabihf" && familySync() == MUSL) {
        target = "linux-arm-musleabihf";
    }
