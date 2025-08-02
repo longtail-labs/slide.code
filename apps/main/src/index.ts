@@ -68,9 +68,9 @@ const program = Effect.gen(function* () {
     yield* electronEventService.initialize
     log.info('[MAIN] ✅ Electron event service initialized')
 
-    log.info('[MAIN] 🔄 Configuring performance optimizations and ensuring single instance...')
-    yield* Effect.all([configurePerformanceOptimizations, ensureSingleInstance])
-    log.info('[MAIN] ✅ Performance optimizations configured and single instance ensured')
+    // log.info('[MAIN] 🔄 Configuring performance optimizations and ensuring single instance...')
+    // yield* Effect.all([configurePerformanceOptimizations, ensureSingleInstance])
+    // log.info('[MAIN] ✅ Performance optimizations configured and single instance ensured')
 
     const vibeDir = yield* createVibeDir
     yield* userRef.updateVibeDirectory(vibeDir)
