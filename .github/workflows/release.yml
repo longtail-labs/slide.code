@@ -80,7 +80,7 @@ jobs:
         run: |
           npm run make:prod
         env:
-          VITE_APTABASE_APP_KEY: ${{ secrets.VITE_APTABASE_APP_KEY }}
+          APTABASE_APP_KEY: ${{ secrets.APTABASE_APP_KEY }}
 
       - name: Run Conveyor for Release Build
         if: steps.check_release.outputs.result != 'true'
@@ -93,7 +93,7 @@ jobs:
           ENV: production
           MODE: production
           BUILD_VERSION: ${{ steps.get_version.outputs.VERSION }}
-          VITE_APTABASE_APP_KEY: ${{ secrets.VITE_APTABASE_APP_KEY }}
+          APTABASE_APP_KEY: ${{ secrets.APTABASE_APP_KEY }}
           APPLE_NOTARIZATION_ISSUER_ID: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
           APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
           APPLE_NOTARIZATION_PRIVATE_KEY: ${{ secrets.APPLE_NOTARIZATION_PRIVATE_KEY }}

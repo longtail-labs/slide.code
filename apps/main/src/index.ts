@@ -28,9 +28,17 @@ import { createAppReady } from '@slide.code/schema/messages'
 
 log.info('[MAIN] 🚀 Starting SlideCode main process')
 log.info('[MAIN] 📍 Current working directory:', process.cwd())
+log.info('[MAIN] 📍 __dirname:', __dirname)
+log.info('[MAIN] 📍 App path:', app.getAppPath())
+log.info('[MAIN] 📍 Exe path:', app.getPath('exe'))
 log.info('[MAIN] 🔧 Node version:', process.version)
 log.info('[MAIN] 🔧 Electron version:', process.versions.electron)
 log.info('[MAIN] 📦 App version:', app.getVersion())
+
+// Check if running from system32 on Windows
+if (process.platform === 'win32' && process.cwd().toLowerCase().includes('system32')) {
+  log.warn('[MAIN] ⚠️ Running from system32, this may cause issues!')
+}
 
 // Global references to prevent garbage collection
 let eventHandlerFiber: Fiber.RuntimeFiber<any, any> | null = null
@@ -40,17 +48,29 @@ const program = Effect.gen(function* () {
   try {
     log.info('[MAIN] 🔄 Starting main program execution')
 
+    log.info('[MAIN] 🔄 Registering deep linking protocol...')
     yield* registerDeepLinkingProtocol
+    log.info('[MAIN] ✅ Deep linking protocol registered')
 
+    log.info('[MAIN] 🔄 Getting services...')
     const menuService = yield* MenuService
+    log.info('[MAIN] ✅ MenuService obtained')
     const pubsub = yield* PubSubClient
+    log.info('[MAIN] ✅ PubSubClient obtained')
     const electronEventService = yield* ElectronEventService // Get the electron event service
+    log.info('[MAIN] ✅ ElectronEventService obtained')
     const userRef = yield* UserRef
+    log.info('[MAIN] ✅ UserRef obtained')
     const dbService = yield* DatabaseService
+    log.info('[MAIN] ✅ DatabaseService obtained')
 
+    log.info('[MAIN] 🔄 Initializing electron event service...')
     yield* electronEventService.initialize
+    log.info('[MAIN] ✅ Electron event service initialized')
 
-    yield* Effect.all([configurePerformanceOptimizations, ensureSingleInstance])
+    // log.info('[MAIN] 🔄 Configuring performance optimizations and ensuring single instance...')
+    // yield* Effect.all([configurePerformanceOptimizations, ensureSingleInstance])
+    // log.info('[MAIN] ✅ Performance optimizations configured and single instance ensured')
 
     const vibeDir = yield* createVibeDir
     yield* userRef.updateVibeDirectory(vibeDir)
@@ -76,9 +96,18 @@ const program = Effect.gen(function* () {
     }
 
     // Initialize Aptabase analytics
-    log.info('[MAIN] 📊 Initializing Aptabase analytics')
-    yield* Effect.fork(initializeAptabaseEffect(aptabaseConfig))
-    log.info('[MAIN] ✅ Aptabase analytics initialized')
+    log.info('[MAIN] 📊 Initializing Aptabase analytics', aptabaseConfig)
+    if (aptabaseConfig.appKey._tag === 'Some') {
+      yield* Effect.fork(
+        initializeAptabaseEffect({
+          appKey: aptabaseConfig.appKey.value,
+          debug: aptabaseConfig.debug
+        })
+      )
+      log.info('[MAIN] ✅ Aptabase analytics initialized')
+    } else {
+      log.info('[MAIN] 📊 Aptabase analytics disabled - no app key provided')
+    }
 
     // Handle app events using the ElectronEventService
     log.info('[MAIN] 🔄 Setting up event handler stream')
@@ -190,14 +219,38 @@ const main = program.pipe(
 )
 
 export function initApp() {
-  SlideRuntime.runPromise(Effect.withConfigProvider(main, config.viteConfigProvider())).catch(
-    (error) => {
-      log.error('[MAIN] ❌ Error in main', error)
+  log.info('[MAIN] 🚀 initApp() called - starting SlideRuntime')
 
-      // Clean up runtime on error
-      SlideRuntime.dispose().catch((disposeError) => {
-        log.error('[MAIN] ❌ Error disposing runtime after main error:', disposeError)
+  try {
+    log.info('[MAIN] 🔄 Creating config provider...')
+    const configProvider = config.viteConfigProvider()
+    log.info('[MAIN] ✅ Config provider created')
+
+    log.info('[MAIN] 🔄 Creating main effect with config...')
+    const mainWithConfig = Effect.withConfigProvider(main, configProvider)
+    log.info('[MAIN] ✅ Main effect configured')
+
+    log.info('[MAIN] 🔄 Running SlideRuntime.runPromise...')
+    SlideRuntime.runPromise(mainWithConfig)
+      .then(() => {
+        log.info('[MAIN] ✅ SlideRuntime.runPromise completed successfully')
       })
-    }
-  )
+      .catch((error) => {
+        log.error('[MAIN] ❌ Error in SlideRuntime.runPromise:', error)
+        log.error('[MAIN] ❌ Error stack:', error?.stack)
+        log.error('[MAIN] ❌ Error details:', JSON.stringify(error, null, 2))
+
+        // Clean up runtime on error
+        SlideRuntime.dispose().catch((disposeError) => {
+          log.error('[MAIN] ❌ Error disposing runtime after main error:', disposeError)
+        })
+      })
+  } catch (syncError) {
+    log.error('[MAIN] ❌ Synchronous error in initApp:', syncError)
+    log.error(
+      '[MAIN] ❌ Sync error stack:',
+      syncError instanceof Error ? syncError.stack : 'No stack trace'
+    )
+    log.error('[MAIN] ❌ Sync error details:', JSON.stringify(syncError, null, 2))
+  }
 }
