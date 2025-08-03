@@ -72,7 +72,7 @@ jobs:
           npm pkg set version="${{ needs.generate-version.outputs.beta_version }}-beta"
 
       - name: Run Conveyor for Beta Build
-        uses: hydraulic-software/conveyor/actions/build@v19.0
+        uses: hydraulic-software/conveyor/actions/build@v18.1
         env:
           APPLE_ASP: ${{ secrets.APPLE_ASP }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
