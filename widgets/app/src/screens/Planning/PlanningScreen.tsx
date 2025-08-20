@@ -165,7 +165,7 @@ const HeaderNavigation = ({
                 variant="ghost"
                 size="sm"
                 className="h-10 w-10 p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                onClick={() => openInvite('your-discord-invite')}
+                onClick={() => openInvite('vZvkNmwQ7f')}
                 title="Discord"
               >
                 <IconBrandDiscord
@@ -580,7 +580,7 @@ const PlanningScreen: React.FC = () => {
             <Button onClick={() => window.location.reload()} variant="outline" className="mr-2">
               Retry
             </Button>
-            <Button onClick={() => openInvite('your-discord-invite')} variant="ghost">
+            <Button onClick={() => openInvite('vZvkNmwQ7f')} variant="ghost">
               Report Issue
             </Button>
           </div>

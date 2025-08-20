@@ -2,13 +2,13 @@
 
 **A Graphical Vibe Coding Environment (VCE) for Claude Code**
 
-[Join our Discord](https://discord.gg/2RgudA7g) • [View All Releases](https://github.com/longtail-labs/slide.code/releases/latest) • [📥 Download](https://longtail-labs.github.io/slide.code/download.html)
+[Join our Discord](https://discord.gg/vZvkNmwQ7f) • [View All Releases](https://github.com/longtail-labs/slide.code/releases/latest) • [📥 Download](https://longtail-labs.github.io/slide.code/download.html)
 
 ## 📥 Downloads
 
 <div align="center">
 
-[![macOS Apple Silicon](https://img.shields.io/badge/🍎_macOS_(Apple_Silicon)-Download-blue?style=for-the-badge&logo=apple&logoColor=white)](https://slide-code-downloader.internal-slide.workers.dev/mac-silicon) [![macOS Intel](https://img.shields.io/badge/🍎_macOS_(Intel)-Download-blue?style=for-the-badge&logo=apple&logoColor=white)](https://slide-code-downloader.internal-slide.workers.dev/mac-intel) [![Windows](https://img.shields.io/badge/🪟_Windows-Download-blue?style=for-the-badge&logo=windows&logoColor=white)](https://slide-code-downloader.internal-slide.workers.dev/windows)
+[![macOS Apple Silicon](<https://img.shields.io/badge/🍎_macOS_(Apple_Silicon)-Download-blue?style=for-the-badge&logo=apple&logoColor=white>)](https://slide-code-downloader.internal-slide.workers.dev/mac-silicon) [![macOS Intel](<https://img.shields.io/badge/🍎_macOS_(Intel)-Download-blue?style=for-the-badge&logo=apple&logoColor=white>)](https://slide-code-downloader.internal-slide.workers.dev/mac-intel) [![Windows](https://img.shields.io/badge/🪟_Windows-Download-blue?style=for-the-badge&logo=windows&logoColor=white)](https://slide-code-downloader.internal-slide.workers.dev/windows)
 
 </div>
 
@@ -21,21 +21,21 @@
 ## 📸 Screenshots
 
 <div align="center">
-  
-  ### 🎯 Main Interface
-  
+
+### 🎯 Main Interface
+
   <img src=".screenshots/action-bar.png" alt="Action Bar" width="90%" />
   <p><em>Action Bar - Command Center</em></p>
-  
+
   <br/>
-  
+
   <img src=".screenshots/running.png" alt="Home Light Mode" width="90%" />
   <p><em>Home - Light Mode</em></p>
-  
+
   <br/>
-  
-  ### 🎨 Features & Modes
-  
+
+### 🎨 Features & Modes
+
   <table>
     <tr>
       <td width="50%">
@@ -78,7 +78,7 @@
       </td>
     </tr>
   </table>
-  
+
 </div>
 
 Slide Code is a intuitive desktop application that ideally makes it a bit easier to run multiple Claude Code agents at once
@@ -112,12 +112,12 @@ Slide Code is a intuitive desktop application that ideally makes it a bit easier
 
 - **One-Click Project Creation**: Create new projects instantly or select existing ones, no Github integration required
 - **Vibe Directory**: New projects get placed into a specified directory
-- **Multi-Task Execution**: Run multiple Claude Code tasks simultaneously 
+- **Multi-Task Execution**: Run multiple Claude Code tasks simultaneously
 - **Session Persistence**: Resume your coding sessions anytime, anywhere
 
 ### 🎵 **Vibe While You Code**
 
-- **Integrated Music Player**: Stream from SomaFM while coding 
+- **Integrated Music Player**: Stream from SomaFM while coding
 - **TBPN Channel**: Keep up to date with the latest tech news directly in the VCE
 - **Hacker News Reader**: Keep up to date with the latest tech news without leaving your flow
 - **Play a massive multiplayer game**: Play a Splatoon inspired multiplayer game where you compete automatically to take over the grid
@@ -147,12 +147,11 @@ Slide Code is a intuitive desktop application that ideally makes it a bit easier
 ### Getting Started
 
 1. **Launch Slide Code**: Open the application after installation
-2. **Create or Select a Project**: 
+2. **Create or Select a Project**:
    - Click "Create New Project" for a fresh start
    - Or "Select Existing Project" to work with existing code
 3. **Give it a Prompt**: Describe what you want to build
 4. **Watch the Magic**: Claude Code starts working while you vibe to your favorite tunes
-
 
 ## 🔄 Roadmap
 
@@ -256,7 +255,6 @@ npm run studio              # Open Drizzle Studio
 3. **Make changes**: Edit files in `widgets/app/src/` for UI, `packages/core/src/` for logic
 4. **Hot reload**: Changes automatically reload in development
 
-
 ## 🔨 Building Locally
 
 ### **Prerequisites**
@@ -268,6 +266,7 @@ npm run studio              # Open Drizzle Studio
 ### **Local Build Instructions**
 
 1. **Install Dependencies**
+
    ```bash
    npm install
    ```
@@ -277,33 +276,34 @@ npm run studio              # Open Drizzle Studio
    ```bash
    # For production build
    npm run build:prod
-   
+
    # For beta build
    npm run build:beta
    ```
 
-4. **Process the build**
+3. **Process the build**
 
-  ```bash
-  # For production build
-  npm run make:prod
+```bash
+# For production build
+npm run make:prod
 
-  # For beta build
-  npm run make:beta
-  ```
+# For beta build
+npm run make:beta
+```
 
 4. **Build with Conveyor**
-   
+
    ```bash
    # Build for local testing (uses conveyor.local.conf)
    npm run compile:local
-   
+
    # The built application will be in /output. Move the app to your Applications folder to test
    ```
 
 ### **Nightly Beta Releases**
 
 The project supports automated nightly beta releases via GitHub Actions:
+
 - Beta builds use [`conveyor.beta.conf`](conveyor.beta.conf) for configuration
 - Automatically published to the beta release channel
 - Separate app ID and branding from production releases
@@ -315,6 +315,7 @@ Contributing to Slide Code is straightforward thanks to our strongly-typed archi
 ### **Type-Safe Development**
 
 The entire codebase is strongly typed across all boundaries, making it hard to introduce runtime errors:
+
 - **TypeScript everywhere**: From main process to renderer, all code is type-checked
 - **Drizzle ORM**: Type-safe database schemas and queries with compile-time validation
 - **Effect.ts schemas**: Ensure data integrity across process boundaries
@@ -339,5 +340,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - ⭐ **Star this repo** if you find it useful
 - 🐛 **Report bugs** via GitHub Issues
-- 💬 **Chat with us & Request features** on [Discord](https://discord.gg/2RgudA7g)
+- 💬 **Chat with us & Request features** on [Discord](https://discord.gg/vZvkNmwQ7f)
 - 🐦 **Follow me** on Twitter [@jonovono](https://x.com/jonovono)
