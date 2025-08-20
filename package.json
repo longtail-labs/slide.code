@@ -1,7 +1,7 @@
 {
   "name": "slide.code",
   "productName": "slide.code",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "beta": false,
   "description": "IDE for Claude Code",
   "main": "packages/entry-point.js",
